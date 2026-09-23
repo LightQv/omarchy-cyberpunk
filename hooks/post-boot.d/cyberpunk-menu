@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Catch a theme switch interrupted before its late theme-set hook could run.
+source_file=$(realpath -e -- "${BASH_SOURCE[0]}")
+project=$(dirname "$(dirname "$(dirname "$source_file")")")
+for attempt in 1 2 3 4 5; do
+  if "$project/scripts/verify" --repair; then exit 0; fi
+  sleep 1
+done
+exit 1

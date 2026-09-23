@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "lightqv.cyberpunk-menu",
+  "name": "Cyberpunk menu",
+  "version": "1.0.0",
+  "author": "Omarchy, lightqv",
+  "description": "Theme-scoped red and turquoise visual clone of the Omarchy command menu",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cyberpunk menu",
+    "description": "Launches the Omarchy menu",
+    "category": "Compositor",
+    "allowMultiple": false
+  },
+  "omarchy": { "clonedFrom": "omarchy.menu" }
+}

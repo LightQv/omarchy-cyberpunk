@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+[[ $# == 0 ]] || die "usage: scripts/upgrade-notifications"
+[[ $(current_theme) == cyberpunk ]] || die "select Cyberpunk before upgrading"
+owned_link "$THEME_LINK" "$THEME_SOURCE" || die "existing Cyberpunk theme missing"
+owned_link "$PLUGIN_LINK" "$PLUGIN_SOURCE" || die "existing menu clone missing"
+owned_link "$POLKIT_LINK" "$POLKIT_SOURCE" || die "existing Polkit clone missing"
+owned_link "$HOOK_LINK" "$HOOK_SOURCE" || die "existing theme hook missing"
+owned_link "$BOOT_LINK" "$BOOT_SOURCE" || die "existing boot hook missing"
+"$PROJECT/scripts/manage-bashrc.py" check
+unoccupied "$NOTIFY_LINK" || die "notifications path is already occupied"
+! notify_referenced || die "notifications clone already referenced"
+menu_enabled omarchy.notifications || die "stock notifications unavailable"
+omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.notifications")] | length == 0' >/dev/null || die "another notifications clone is installed"
+omarchy plugin validate "$NOTIFY_SOURCE"
+
+rollback() {
+  local status=$?
+  trap - EXIT
+  if (( status != 0 )); then
+    omarchy plugin disable "$NOTIFY_ID" >/dev/null 2>&1 || true
+    omarchy plugin enable omarchy.notifications >/dev/null 2>&1 || true
+    if owned_link "$NOTIFY_LINK" "$NOTIFY_SOURCE"; then
+      omarchy plugin remove "$NOTIFY_ID" --yes >/dev/null 2>&1 || rm -- "$NOTIFY_LINK"
+    fi
+  fi
+  exit "$status"
+}
+trap rollback EXIT
+ln -s "$NOTIFY_SOURCE" "$NOTIFY_LINK"
+omarchy-shell shell rescanPlugins >/dev/null
+"$PROJECT/scripts/verify" --repair
+trap - EXIT
+printf 'Cyberpunk: notifications clone installed and active.\n'

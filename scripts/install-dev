@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+[[ $# == 0 ]] || die "usage: scripts/install-dev"
+umask 077
+[[ -f $HOME/.local/state/omarchy-cyberpunk-backup/shell.json ]] || die "private baseline backup missing"
+[[ -f $HOME/.local/state/omarchy-cyberpunk-backup/bashrc ]] || die "private Bash configuration backup missing"
+omarchy plugin validate "$PLUGIN_SOURCE"
+omarchy plugin validate "$POLKIT_SOURCE"
+omarchy plugin validate "$NOTIFY_SOURCE"
+omarchy plugin validate "$OSD_SOURCE"
+[[ $(jq -r .id "$PLUGIN_SOURCE/manifest.json") == "$PLUGIN_ID" ]] || die "plugin id mismatch"
+[[ $(jq -r .id "$POLKIT_SOURCE/manifest.json") == "$POLKIT_ID" ]] || die "Polkit plugin id mismatch"
+[[ $(jq -r .id "$NOTIFY_SOURCE/manifest.json") == "$NOTIFY_ID" ]] || die "notifications plugin id mismatch"
+[[ $(jq -r .id "$OSD_SOURCE/manifest.json") == "$OSD_ID" ]] || die "OSD plugin id mismatch"
+[[ -x $PROJECT/askpass/cyberpunk-askpass ]] || die "graphical askpass unavailable"
+"$PROJECT/scripts/manage-bashrc.py" absent
+[[ -f $THEME_SOURCE/colors.toml && -f $THEME_SOURCE/backgrounds/01-lucy.png && -f $THEME_SOURCE/backgrounds/03-night-city.jpg ]] || die "theme artwork incomplete"
+
+for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$HOOK_LINK" "$BOOT_LINK"; do
+  unoccupied "$path" || die "path already occupied: $path"
+done
+[[ $(current_theme) != cyberpunk ]] || die "Cyberpunk already selected before install"
+menu_enabled omarchy.menu || die "stock menu not enabled"
+menu_enabled omarchy.polkit || die "stock Polkit agent not enabled"
+menu_enabled omarchy.notifications || die "stock notifications not enabled"
+menu_enabled omarchy.osd || die "stock OSD not enabled"
+jq -e 'any(.bar.layout[]?[]?; (if type == "object" then .id else . end) == "omarchy.menu")' "$(shell_config)" >/dev/null || die "stock menu button missing; refusing to alter bar layout"
+! clone_referenced || die "Cyberpunk clone already referenced in shell.json"
+! polkit_referenced || die "Cyberpunk Polkit clone already referenced in shell.json"
+! notify_referenced || die "Cyberpunk notifications clone already referenced in shell.json"
+! osd_referenced || die "Cyberpunk OSD clone already referenced in shell.json"
+omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.menu")] | length == 0' >/dev/null || die "another menu clone is installed; resolve conflict first"
+omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.polkit")] | length == 0' >/dev/null || die "another Polkit clone is installed; resolve conflict first"
+omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.notifications")] | length == 0' >/dev/null || die "another notifications clone is installed; resolve conflict first"
+omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.osd")] | length == 0' >/dev/null || die "another OSD clone is installed; resolve conflict first"
+
+previous=$(current_theme)
+[[ -d /usr/share/omarchy/themes/$previous || -d $HOME/.config/omarchy/themes/$previous ]] || die "previous theme unavailable"
+mkdir -p "$STATE_DIR"
+printf '%s\n' "$previous" >"$STATE_DIR/previous-theme"
+
+rollback() {
+  status=$?
+  trap - EXIT
+  if (( status != 0 )); then
+    printf 'Cyberpunk: install failed; restoring %s.\n' "$previous" >&2
+    if owned_link "$HOOK_LINK" "$HOOK_SOURCE"; then rm -- "$HOOK_LINK"; fi
+    if owned_link "$BOOT_LINK" "$BOOT_SOURCE"; then rm -- "$BOOT_LINK"; fi
+    "$PROJECT/scripts/manage-bashrc.py" remove || true
+    if [[ $(current_theme) == cyberpunk ]]; then omarchy theme set "$previous" || true; fi
+    if owned_link "$PLUGIN_LINK" "$PLUGIN_SOURCE"; then
+      omarchy plugin disable "$PLUGIN_ID" || true
+      omarchy plugin remove "$PLUGIN_ID" --yes || true
+    fi
+    if owned_link "$POLKIT_LINK" "$POLKIT_SOURCE"; then
+      omarchy plugin disable "$POLKIT_ID" || true
+      omarchy plugin enable omarchy.polkit || true
+      omarchy plugin remove "$POLKIT_ID" --yes || true
+    fi
+    if owned_link "$NOTIFY_LINK" "$NOTIFY_SOURCE"; then
+      omarchy plugin disable "$NOTIFY_ID" || true
+      omarchy plugin enable omarchy.notifications || true
+      omarchy plugin remove "$NOTIFY_ID" --yes || true
+    fi
+    if owned_link "$OSD_LINK" "$OSD_SOURCE"; then
+      omarchy plugin disable "$OSD_ID" || true
+      omarchy plugin enable omarchy.osd || true
+      omarchy plugin remove "$OSD_ID" --yes || true
+    fi
+    if owned_link "$THEME_LINK" "$THEME_SOURCE"; then rm -- "$THEME_LINK"; fi
+  fi
+  exit "$status"
+}
+trap rollback EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+mkdir -p "$(dirname "$THEME_LINK")" "$(dirname "$PLUGIN_LINK")" "$(dirname "$HOOK_LINK")" "$(dirname "$BOOT_LINK")"
+ln -s "$THEME_SOURCE" "$THEME_LINK"
+ln -s "$PLUGIN_SOURCE" "$PLUGIN_LINK"
+ln -s "$POLKIT_SOURCE" "$POLKIT_LINK"
+ln -s "$NOTIFY_SOURCE" "$NOTIFY_LINK"
+ln -s "$OSD_SOURCE" "$OSD_LINK"
+omarchy-shell shell rescanPlugins >/dev/null
+omarchy plugin list --json | jq -e --arg id "$PLUGIN_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "clone was not discovered safely"
+omarchy plugin list --json | jq -e --arg id "$POLKIT_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "Polkit clone was not discovered safely"
+omarchy plugin list --json | jq -e --arg id "$NOTIFY_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "notifications clone was not discovered safely"
+omarchy plugin list --json | jq -e --arg id "$OSD_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "OSD clone was not discovered safely"
+"$PROJECT/scripts/manage-bashrc.py" install
+ln -s "$HOOK_SOURCE" "$HOOK_LINK"
+ln -s "$BOOT_SOURCE" "$BOOT_LINK"
+omarchy theme set cyberpunk
+"$PROJECT/scripts/verify" --check
+trap - EXIT
+printf 'Cyberpunk: installed. Remove with %s/scripts/uninstall-dev\n' "$PROJECT"

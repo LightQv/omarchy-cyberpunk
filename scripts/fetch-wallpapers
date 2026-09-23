@@ -1,0 +1,53 @@
+#!/usr/bin/bash
+# Fetch personal-use artwork explicitly, separately from the distributable code.
+set -euo pipefail
+project=$(realpath -e "$(dirname "${BASH_SOURCE[0]}")/..")
+directory="$project/theme/backgrounds"
+[[ -d $directory ]] || { printf 'Wallpaper directory missing: %s\n' "$directory" >&2; exit 1; }
+command -v curl >/dev/null && command -v magick >/dev/null || {
+  printf 'curl and ImageMagick are required to prepare local artwork.\n' >&2
+  exit 1
+}
+
+fetch() {
+  local name=$1 url=$2 expected=$3 target="$directory/$1" tmp actual
+  if [[ -f $target ]]; then
+    actual=$(sha256sum "$target")
+    [[ ${actual%% *} == "$expected" ]] || {
+      printf 'Artwork differs from recorded source; leaving it untouched: %s\n' "$target" >&2
+      return 1
+    }
+    return
+  fi
+  [[ ! -e $target && ! -L $target ]] || { printf 'Path already occupied: %s\n' "$target" >&2; return 1; }
+  tmp=$(mktemp "$directory/.download.XXXXXX")
+  if ! curl -fL --retry 2 --silent --show-error "$url" -o "$tmp"; then
+    rm -- "$tmp"
+    return 1
+  fi
+  actual=$(sha256sum "$tmp")
+  if [[ ${actual%% *} != "$expected" ]]; then
+    rm -- "$tmp"
+    printf 'Downloaded artwork checksum changed; nothing installed: %s\n' "$url" >&2
+    return 1
+  fi
+  if ! ln -- "$tmp" "$target"; then
+    rm -- "$tmp"
+    printf 'Artwork path became occupied: %s\n' "$target" >&2
+    return 1
+  fi
+  rm -- "$tmp"
+}
+
+fetch '01-lucy.png' \
+  'https://raw.githubusercontent.com/ARCANGEL0/CyberArch-Shell/master/assets/img/lucy_wallpaper.png' \
+  'edadd48b11830398350277f58d9116e752a55eef0726f4d5a4679ef81f734dd1'
+fetch '03-night-city.jpg' \
+  'https://cdn-l-cyberpunk.cdprojektred.com/cyberpunk2077/phantom-liberty/gallery-screenshot-03@2x.jpg' \
+  '67bdcb43f3a6ceb29ba4708e260241cdabbd51c57bb1f0f4dffe051d3dda669f'
+
+if [[ ! -e $project/theme/preview.png && ! -L $project/theme/preview.png ]]; then
+  magick "$directory/01-lucy.png" -thumbnail '900x506^' -gravity center \
+    -extent '900x506' "$project/theme/preview.png"
+fi
+printf 'Local Cyberpunk wallpapers verified.\n'

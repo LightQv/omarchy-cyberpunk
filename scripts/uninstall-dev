@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+[[ $# == 0 ]] || die "usage: scripts/uninstall-dev"
+for pair in "$THEME_LINK:$THEME_SOURCE" "$PLUGIN_LINK:$PLUGIN_SOURCE" "$POLKIT_LINK:$POLKIT_SOURCE" "$NOTIFY_LINK:$NOTIFY_SOURCE" "$OSD_LINK:$OSD_SOURCE" "$HOOK_LINK:$HOOK_SOURCE" "$BOOT_LINK:$BOOT_SOURCE"; do
+  path=${pair%%:*}
+  target=${pair#*:}
+  if ! unoccupied "$path"; then
+    owned_link "$path" "$target" || die "path no longer owned by this project: $path"
+  fi
+done
+if unoccupied "$THEME_LINK" && unoccupied "$PLUGIN_LINK" && unoccupied "$POLKIT_LINK" && unoccupied "$NOTIFY_LINK" && unoccupied "$OSD_LINK"; then
+  "$PROJECT/scripts/verify" --removed
+  exit 0
+fi
+owned_link "$THEME_LINK" "$THEME_SOURCE" || die "theme path missing; inspect partial removal before proceeding"
+owned_link "$PLUGIN_LINK" "$PLUGIN_SOURCE" || die "plugin path missing; inspect partial removal before proceeding"
+owned_link "$POLKIT_LINK" "$POLKIT_SOURCE" || die "Polkit path missing; inspect partial removal before proceeding"
+owned_link "$NOTIFY_LINK" "$NOTIFY_SOURCE" || die "notifications path missing; inspect partial removal before proceeding"
+owned_link "$OSD_LINK" "$OSD_SOURCE" || die "OSD path missing; inspect partial removal before proceeding"
+"$PROJECT/scripts/manage-bashrc.py" check
+[[ -f $STATE_DIR/previous-theme ]] || die "record of original theme missing"
+previous=$(<"$STATE_DIR/previous-theme")
+[[ $previous != cyberpunk && $previous != */* ]] || die "invalid original theme"
+
+# Take the hook out of service first. The active clone can still be disabled
+# through Omarchy's own API, without editing the user's JSON directly.
+exec 9>"$LOCK"
+flock 9
+if owned_link "$HOOK_LINK" "$HOOK_SOURCE"; then rm -- "$HOOK_LINK"; fi
+if owned_link "$BOOT_LINK" "$BOOT_SOURCE"; then rm -- "$BOOT_LINK"; fi
+omarchy menu close >/dev/null 2>&1 || true
+omarchy plugin disable "$PLUGIN_ID" || die "could not restore stock menu; plugin remains installed for recovery"
+omarchy plugin disable "$POLKIT_ID" || die "could not restore stock Polkit agent; plugin remains installed for recovery"
+omarchy plugin disable "$NOTIFY_ID" || die "could not restore stock notifications; plugin remains installed for recovery"
+omarchy plugin disable "$OSD_ID" || die "could not restore stock OSD; plugin remains installed for recovery"
+if ! menu_enabled omarchy.polkit; then
+  omarchy plugin enable omarchy.polkit || die "could not start stock Polkit agent; plugin remains installed for recovery"
+fi
+if ! menu_enabled omarchy.notifications; then
+  omarchy plugin enable omarchy.notifications || die "could not restore stock notifications; plugin remains installed for recovery"
+fi
+if ! menu_enabled omarchy.osd; then
+  omarchy plugin enable omarchy.osd || die "could not restore stock OSD; plugin remains installed for recovery"
+fi
+! clone_referenced || die "clone references remain; plugin remains installed for recovery"
+! polkit_referenced || die "Polkit clone references remain; plugin remains installed for recovery"
+! notify_referenced || die "notifications clone references remain; plugin remains installed for recovery"
+! osd_referenced || die "OSD clone references remain; plugin remains installed for recovery"
+menu_enabled omarchy.menu || die "stock menu not enabled; plugin remains installed for recovery"
+menu_enabled omarchy.polkit || die "stock Polkit agent not enabled; plugin remains installed for recovery"
+menu_enabled omarchy.notifications || die "stock notifications not enabled; plugin remains installed for recovery"
+menu_enabled omarchy.osd || die "stock OSD not enabled; plugin remains installed for recovery"
+flock -u 9
+
+if [[ $(current_theme) == cyberpunk ]]; then
+  if [[ ! -d /usr/share/omarchy/themes/$previous && ! -d $HOME/.config/omarchy/themes/$previous ]]; then
+    previous=matte-black
+    [[ -d /usr/share/omarchy/themes/$previous ]] || die "no stock theme fallback available"
+  fi
+  omarchy theme set "$previous"
+fi
+
+exec 9>"$LOCK"
+flock 9
+owned_link "$PLUGIN_LINK" "$PLUGIN_SOURCE" || die "plugin path changed during uninstall"
+omarchy plugin remove "$PLUGIN_ID" --yes
+owned_link "$POLKIT_LINK" "$POLKIT_SOURCE" || die "Polkit path changed during uninstall"
+omarchy plugin remove "$POLKIT_ID" --yes
+owned_link "$NOTIFY_LINK" "$NOTIFY_SOURCE" || die "notifications path changed during uninstall"
+omarchy plugin remove "$NOTIFY_ID" --yes
+owned_link "$OSD_LINK" "$OSD_SOURCE" || die "OSD path changed during uninstall"
+omarchy plugin remove "$OSD_ID" --yes
+owned_link "$THEME_LINK" "$THEME_SOURCE" || die "theme path changed during uninstall"
+rm -- "$THEME_LINK"
+"$PROJECT/scripts/manage-bashrc.py" remove
+"$PROJECT/scripts/verify" --removed
+printf 'Cyberpunk: removed project links/hook; stock menu restored. Baseline backup retained.\n'

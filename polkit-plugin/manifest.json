@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "lightqv.cyberpunk-polkit",
+  "name": "Cyberpunk authentication",
+  "version": "1.0.0",
+  "author": "Omarchy, lightqv",
+  "description": "Theme-scoped graphical authentication dialog for privileged actions.",
+  "omarchy": {
+    "clonedFrom": "omarchy.polkit"
+  },
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "PolkitAgent.qml"
+  }
+}

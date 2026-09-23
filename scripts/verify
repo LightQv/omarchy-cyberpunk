@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+mode=${1:---check}
+[[ $mode == --check || $mode == --repair || $mode == --removed ]] || die "usage: scripts/verify [--check|--repair|--removed]"
+if [[ $mode == --removed ]]; then
+  for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$HOOK_LINK" "$BOOT_LINK"; do
+    unoccupied "$path" || die "project path remains or is occupied: $path"
+  done
+  ! clone_referenced || die "clone references remain in shell.json"
+  ! polkit_referenced || die "Polkit clone references remain in shell.json"
+  ! notify_referenced || die "notifications clone references remain in shell.json"
+  ! osd_referenced || die "OSD clone references remain in shell.json"
+  "$PROJECT/scripts/manage-bashrc.py" absent
+  [[ $(current_theme) != cyberpunk ]] || die "Cyberpunk theme remains active"
+  menu_enabled omarchy.menu || die "stock menu is not enabled"
+  menu_enabled omarchy.polkit || die "stock Polkit agent is not enabled"
+  menu_enabled omarchy.notifications || die "stock notifications are not enabled"
+  menu_enabled omarchy.osd || die "stock OSD is not enabled"
+  wait_for_menu || die "stock menu ping failed"
+  printf 'Cyberpunk: project removed; stock menu operational.\n'
+  exit 0
+fi
+installed || die "project links/hook are missing or no longer owned by this project"
+
+exec 9>"$LOCK"
+flock 9
+for attempt in 1 2 3 4; do
+  selected=$(current_theme)
+  if [[ $selected == cyberpunk ]]; then
+    if ! menu_enabled "$PLUGIN_ID"; then
+      [[ $mode == --repair ]] || die "Cyberpunk selected but menu clone is inactive"
+      omarchy plugin enable "$PLUGIN_ID"
+    fi
+    menu_enabled "$PLUGIN_ID" || die "clone did not activate"
+    if ! menu_enabled "$POLKIT_ID"; then
+      [[ $mode == --repair ]] || die "Cyberpunk selected but Polkit clone is inactive"
+      # The Polkit agent registers on D-Bus at component creation. Stop the
+      # stock agent first, or the new one loses the registration race.
+      if menu_enabled omarchy.polkit; then omarchy plugin disable omarchy.polkit; fi
+      if ! omarchy plugin enable "$POLKIT_ID"; then
+        omarchy plugin enable omarchy.polkit || true
+        die "Polkit clone failed; stock agent restored"
+      fi
+    fi
+    menu_enabled "$POLKIT_ID" || die "Polkit clone did not activate"
+    if ! menu_enabled "$NOTIFY_ID"; then
+      [[ $mode == --repair ]] || die "Cyberpunk selected but notifications clone is inactive"
+      if menu_enabled omarchy.notifications; then omarchy plugin disable omarchy.notifications; fi
+      if ! omarchy plugin enable "$NOTIFY_ID"; then
+        omarchy plugin enable omarchy.notifications || true
+        die "notifications clone failed; stock service restored"
+      fi
+    fi
+    menu_enabled "$NOTIFY_ID" || die "notifications clone did not activate"
+    ! menu_enabled omarchy.notifications || die "stock notifications still active beside clone"
+    if ! menu_enabled "$OSD_ID"; then
+      [[ $mode == --repair ]] || die "Cyberpunk selected but OSD clone is inactive"
+      omarchy plugin enable "$OSD_ID" || die "OSD clone failed to activate"
+    fi
+    menu_enabled "$OSD_ID" || die "OSD clone did not activate"
+    ! menu_enabled omarchy.osd || die "stock OSD still active beside clone"
+  else
+    if osd_referenced || ! menu_enabled omarchy.osd; then
+      [[ $mode == --repair ]] || die "stock theme selected but OSD clone is active"
+      if osd_referenced; then omarchy plugin disable "$OSD_ID"; fi
+      if ! menu_enabled omarchy.osd; then omarchy plugin enable omarchy.osd; fi
+    fi
+    ! osd_referenced || die "OSD clone references remain after disabling"
+    menu_enabled omarchy.osd || die "stock OSD did not restore"
+    if notify_referenced || ! menu_enabled omarchy.notifications; then
+      [[ $mode == --repair ]] || die "stock theme selected but notifications clone is active"
+      if notify_referenced; then omarchy plugin disable "$NOTIFY_ID"; fi
+      if ! menu_enabled omarchy.notifications; then omarchy plugin enable omarchy.notifications; fi
+    fi
+    ! notify_referenced || die "notifications clone references remain after disabling"
+    menu_enabled omarchy.notifications || die "stock notifications did not restore"
+    if polkit_referenced || ! menu_enabled omarchy.polkit; then
+      [[ $mode == --repair ]] || die "stock theme selected but Polkit clone is active"
+      if polkit_referenced; then omarchy plugin disable "$POLKIT_ID"; fi
+      # Restore only after the cloned agent has been destroyed.
+      if ! menu_enabled omarchy.polkit; then omarchy plugin enable omarchy.polkit; fi
+    fi
+    ! polkit_referenced || die "Polkit clone references remain after disabling"
+    menu_enabled omarchy.polkit || die "stock Polkit agent did not restore"
+    if clone_referenced || ! menu_enabled omarchy.menu; then
+      [[ $mode == --repair ]] || die "stock theme selected but menu clone is active"
+      omarchy menu close >/dev/null 2>&1 || true
+      omarchy plugin disable "$PLUGIN_ID"
+    fi
+    ! clone_referenced || die "clone references remain after disabling"
+    menu_enabled omarchy.menu || die "stock menu did not restore"
+  fi
+  [[ $(current_theme) == "$selected" ]] && break
+  (( attempt < 4 )) || die "theme kept changing; rerun scripts/verify --repair"
+done
+wait_for_menu || die "menu ping failed"
+printf 'Cyberpunk: %s theme and menu agree (%s).\n' "$mode" "$selected"

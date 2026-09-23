@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+[[ $# == 0 ]] || die "usage: scripts/upgrade-osd"
+[[ $(current_theme) == cyberpunk ]] || die "select Cyberpunk before upgrading"
+for pair in "$THEME_LINK:$THEME_SOURCE" "$PLUGIN_LINK:$PLUGIN_SOURCE" "$POLKIT_LINK:$POLKIT_SOURCE" "$NOTIFY_LINK:$NOTIFY_SOURCE" "$HOOK_LINK:$HOOK_SOURCE" "$BOOT_LINK:$BOOT_SOURCE"; do
+  owned_link "${pair%%:*}" "${pair#*:}" || die "existing installation missing: ${pair%%:*}"
+done
+"$PROJECT/scripts/manage-bashrc.py" check
+unoccupied "$OSD_LINK" || die "OSD path already occupied"
+! osd_referenced || die "OSD clone already referenced"
+menu_enabled omarchy.osd || die "stock OSD unavailable"
+omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.osd")] | length == 0' >/dev/null || die "another OSD clone is installed"
+omarchy plugin validate "$OSD_SOURCE"
+
+rollback() {
+  local status=$?
+  trap - EXIT
+  if (( status != 0 )); then
+    omarchy plugin disable "$OSD_ID" >/dev/null 2>&1 || true
+    omarchy plugin enable omarchy.osd >/dev/null 2>&1 || true
+    if owned_link "$OSD_LINK" "$OSD_SOURCE"; then
+      omarchy plugin remove "$OSD_ID" --yes >/dev/null 2>&1 || rm -- "$OSD_LINK"
+    fi
+  fi
+  exit "$status"
+}
+trap rollback EXIT
+ln -s "$OSD_SOURCE" "$OSD_LINK"
+omarchy-shell shell rescanPlugins >/dev/null
+"$PROJECT/scripts/verify" --repair
+trap - EXIT
+printf 'Cyberpunk: OSD clone installed and active.\n'

@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+set -euo pipefail
+project=$(realpath -e "$(dirname "${BASH_SOURCE[0]}")/..")
+exec /usr/bin/python "$project/askpass/askpass.py" "$@"

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "lightqv.cyberpunk-osd",
+  "name": "Cyberpunk on-screen display",
+  "version": "1.0.0",
+  "author": "Omarchy, lightqv",
+  "description": "Theme-scoped bottom-center volume and status OSD",
+  "kinds": ["panel"],
+  "keepLoaded": true,
+  "entryPoints": { "panel": "Osd.qml" },
+  "omarchy": { "clonedFrom": "omarchy.osd" }
+}

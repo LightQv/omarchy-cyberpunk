@@ -1,0 +1,41 @@
+#!/usr/bin/bash
+# Upgrade the already-installed reversible prototype without switching themes.
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+[[ $# == 0 ]] || die "usage: scripts/enable-auth"
+owned_link "$THEME_LINK" "$THEME_SOURCE" || die "Cyberpunk theme is not owned by this project"
+owned_link "$PLUGIN_LINK" "$PLUGIN_SOURCE" || die "Cyberpunk menu is not owned by this project"
+owned_link "$HOOK_LINK" "$HOOK_SOURCE" || die "theme hook is not owned by this project"
+owned_link "$BOOT_LINK" "$BOOT_SOURCE" || die "boot hook is not owned by this project"
+unoccupied "$POLKIT_LINK" || die "Polkit plugin path already occupied"
+"$PROJECT/scripts/manage-bashrc.py" absent
+[[ -f $HOME/.local/state/omarchy-cyberpunk-backup/bashrc ]] || die "private Bash configuration backup missing"
+menu_enabled omarchy.polkit || die "stock Polkit agent not enabled"
+! polkit_referenced || die "Polkit clone already referenced"
+omarchy plugin validate "$POLKIT_SOURCE"
+[[ -x $PROJECT/askpass/cyberpunk-askpass ]] || die "graphical askpass unavailable"
+
+rollback() {
+  status=$?
+  trap - EXIT
+  if (( status != 0 )); then
+    "$PROJECT/scripts/manage-bashrc.py" remove || true
+    if owned_link "$POLKIT_LINK" "$POLKIT_SOURCE"; then
+      omarchy plugin disable "$POLKIT_ID" || true
+      omarchy plugin enable omarchy.polkit || true
+      omarchy plugin remove "$POLKIT_ID" --yes || true
+    fi
+  fi
+  exit "$status"
+}
+trap rollback EXIT
+
+ln -s "$POLKIT_SOURCE" "$POLKIT_LINK"
+omarchy-shell shell rescanPlugins >/dev/null
+omarchy plugin list --json | jq -e --arg id "$POLKIT_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "Polkit clone not discovered"
+"$PROJECT/scripts/manage-bashrc.py" install
+"$PROJECT/scripts/verify" --repair
+"$PROJECT/scripts/verify" --check
+trap - EXIT
+printf 'Cyberpunk: graphical authentication integration enabled.\n'
