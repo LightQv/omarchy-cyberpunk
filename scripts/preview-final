@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Make a five-screen offline review set; never invoke an auth service."""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+from PIL import Image, ImageFilter, ImageOps
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QImage
+from PySide6.QtQuick import QQuickView
+from PySide6.QtWidgets import QApplication
+
+from preview_video import encode_video
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / "preview"
+SIZE = (1920, 1080)
+FPS = 50
+
+
+def qt_image(image):
+    if image.isNull() or (image.width(), image.height()) != SIZE:
+        raise RuntimeError("Offline capture did not produce a 1920x1080 frame")
+    return Image.fromqimage(image).convert("RGB")
+
+
+def render_scene(app, polkit, blurred, sharp):
+    view = QQuickView()
+    view.setResizeMode(QQuickView.SizeRootObjectToView)
+    view.resize(*SIZE)
+    view.setSource(QUrl.fromLocalFile(str(ROOT / "lock-plugin/ReviewScene.qml")))
+    if view.status() != QQuickView.Ready:
+        raise RuntimeError("Could not load the offline lock/Polkit review scene")
+    scene = view.rootObject()
+    scene.setProperty("polkitMode", polkit)
+    scene.setProperty("reviewUserName", os.environ.get("USER") or "LOCAL USER")
+    scene.setProperty("blurredSource", QUrl.fromLocalFile(str(blurred)))
+    scene.setProperty("sharpSource", QUrl.fromLocalFile(str(sharp)))
+    view.show()
+    for _ in range(10):
+        app.processEvents()
+        view.grabWindow()
+
+    def frame(phase):
+        scene.setProperty("phase", phase)
+        app.processEvents()
+        return qt_image(view.grabWindow())
+
+    name = "polkit" if polkit else "lock"
+    still = frame(1)
+    still.save(OUTPUT / f"{name}.png")
+
+    def frames():
+        for tick in range(90):
+            yield frame(min(1.0, tick / 38))
+
+    try:
+        encode_video(frames(), OUTPUT / f"{name}.mp4", FPS)
+    finally:
+        view.close()
+
+
+def render_sudo(app, sharp):
+    sys.path.insert(0, str(ROOT / "askpass"))
+    from askpass import Askpass
+
+    class OfflineAskpass(Askpass):
+        def accept(self):
+            raise RuntimeError("Offline review cannot submit a password")
+
+        def reject(self):
+            raise RuntimeError("Offline review cannot cancel an auth request")
+
+    widget = OfflineAskpass("Authorization is required")
+    widget.resize(*SIZE)
+    widget.scene = QImage(str(sharp))
+    if widget.scene.isNull():
+        raise RuntimeError("Offline sudo background failed to load")
+    widget.variant = 0
+    widget.show()
+    app.processEvents()
+    widget.pulse.stop()
+
+    def frame(phase):
+        if phase < 1:
+            widget.pulse.start()
+            widget.started_at = time.monotonic() - phase * widget.FAULT_DURATION
+        else:
+            widget.pulse.stop()
+        widget.repaint()
+        return qt_image(widget.grab().toImage())
+
+    still = frame(1)
+    still.save(OUTPUT / "sudo.png")
+
+    def frames():
+        for tick in range(90):
+            yield frame(min(1.0, tick / 38))
+
+    try:
+        encode_video(frames(), OUTPUT / "sudo.mp4", FPS)
+    finally:
+        widget.pulse.stop()
+        widget.password.clearFocus()
+        widget.hide()
+        app.processEvents()
+        widget.close()
+        widget.deleteLater()
+        app.processEvents()
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    # Boot/login diagnostics never leave the temporary working directory.
+    wallpaper = ROOT / "theme/backgrounds/01-lucy.png"
+    with tempfile.TemporaryDirectory(dir="/tmp/opencode") as directory:
+        diagnostics = Path(directory) / "diagnostics"
+        for script in ("preview-login-art", "preview-sddm"):
+            subprocess.run([sys.executable, str(ROOT / "scripts" / script), "--mp4",
+                            "--output-dir", str(diagnostics)], check=True)
+        for name, still, clip in (
+            ("boot", "boot-unlock.png", "boot-appearance.mp4"),
+            ("login", "login-current.png", "login-appearance.mp4"),
+        ):
+            with Image.open(diagnostics / still) as image:
+                if image.size != SIZE:
+                    raise RuntimeError(f"Unexpected {name} still resolution: {image.size}")
+                image.convert("RGB").save(OUTPUT / f"{name}.png")
+            shutil.copyfile(diagnostics / clip, OUTPUT / f"{name}.mp4")
+
+        sharp = Path(directory) / "sharp.png"
+        blurred = Path(directory) / "blurred.png"
+        with Image.open(wallpaper) as image:
+            original = ImageOps.fit(image.convert("RGB"), SIZE, method=Image.Resampling.LANCZOS)
+        original.save(sharp)
+        original.filter(ImageFilter.GaussianBlur(9)).save(blurred)
+        app = QApplication([])
+        render_scene(app, False, blurred, sharp)
+        render_scene(app, True, blurred, sharp)
+        render_sudo(app, sharp)
+
+
+if __name__ == "__main__":
+    main()

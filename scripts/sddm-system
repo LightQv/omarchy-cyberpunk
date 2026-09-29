@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+# Privileged, ownership-checked SDDM assets. Does not alter Omarchy's autologin.
+set -euo pipefail
+
+PROJECT=/home/lightqv/Projects/omarchy-cyberpunk
+THEMES=/usr/share/sddm/themes
+CUSTOM="$THEMES/lightqv-cyberpunk"
+SELECTOR="$THEMES/lightqv-cyberpunk-selector"
+STATE=/var/lib/omarchy-cyberpunk
+OVERRIDE=/etc/sddm.conf.d/zz-lightqv-cyberpunk.conf
+RESTORE_PID="$STATE/restore-pid"
+OWNER='omarchy-cyberpunk:lightqv:1'
+
+[[ $# == 1 ]] || { printf 'Usage: sddm-system {stage|fix-qt6-metadata|refresh-selector|refresh-art|activate|restore|remove|status}\n' >&2; exit 1; }
+case $1 in stage|fix-qt6-metadata|refresh-selector|refresh-art|activate|restore|remove|status) ;; *) exit 2 ;; esac
+if [[ $1 != status && $EUID != 0 ]]; then
+  printf 'Run through pkexec or interactive sudo.\n' >&2
+  exit 1
+fi
+
+owned_dir() {
+  local target=$1
+  [[ -d $target && ! -L $target && -f $target/.lightqv-owner && ! -L $target/.lightqv-owner ]] &&
+    [[ $(<"$target/.lightqv-owner") == "$OWNER" ]]
+}
+owned_config() {
+  [[ -f $OVERRIDE && ! -L $OVERRIDE && $(<"$OVERRIDE") == $'[Theme]\nCurrent=lightqv-cyberpunk-selector' ]]
+}
+check_assets() {
+  local dir=$1
+  owned_dir "$dir" || { printf 'SDDM path no longer owned: %s\n' "$dir" >&2; return 1; }
+  local -a expected=(Main.qml metadata.desktop .lightqv-owner)
+  if [[ $dir == "$CUSTOM" ]]; then
+    expected+=(palette.js)
+    if [[ -e $dir/layout.js || -L $dir/layout.js ]]; then
+      expected+=(layout.js)
+    fi
+    if [[ -e $dir/logo.png || -L $dir/logo.png ]]; then
+      expected+=(logo.png)
+    fi
+    if [[ -e $dir/logo-fault-0.png || -L $dir/logo-fault-0.png ]]; then
+      for n in 0 1 2 3 4 5 6; do expected+=("logo-fault-$n.png"); done
+    fi
+    # Accept the earlier staged layout until a separately reviewed refresh.
+    if [[ -e $dir/Oxanium.ttf || -L $dir/Oxanium.ttf ]]; then
+      expected+=(Oxanium.ttf skull.svg)
+    fi
+    if [[ -e $dir/flatline-skull.svg || -L $dir/flatline-skull.svg ]]; then
+      expected+=(flatline-skull.svg)
+    fi
+    if [[ -e $dir/diagnostic-skull.svg || -L $dir/diagnostic-skull.svg ]]; then
+      expected+=(diagnostic-skull.svg)
+    fi
+    if [[ -e $dir/diagnostic-eye.svg || -L $dir/diagnostic-eye.svg ]]; then
+      expected+=(diagnostic-eye.svg)
+    fi
+  fi
+  local count
+  count=$(ls -A "$dir" | wc -l)
+  [[ $count == ${#expected[@]} ]] || { printf 'Unexpected SDDM files in %s\n' "$dir" >&2; return 1; }
+  for name in "${expected[@]}"; do
+    [[ -f $dir/$name && ! -L $dir/$name ]] || return 1
+  done
+}
+
+if [[ $1 == status ]]; then
+  if owned_dir "$CUSTOM" && owned_dir "$SELECTOR"; then
+    printf 'Cyberpunk SDDM assets staged.\n'
+  else
+    printf 'Cyberpunk SDDM assets not completely staged.\n'
+  fi
+  if owned_config; then printf 'Cyberpunk selector enabled.\n'; else printf 'Stock selector unchanged.\n'; fi
+  exit 0
+fi
+
+[[ -d $THEMES && -d /etc/sddm.conf.d ]] || { printf 'SDDM directories missing.\n' >&2; exit 1; }
+[[ $(id -u lightqv) == 1000 ]] || { printf 'Expected user identity changed.\n' >&2; exit 1; }
+
+if [[ $1 == stage ]]; then
+  [[ ! -e $CUSTOM && ! -L $CUSTOM && ! -e $SELECTOR && ! -L $SELECTOR ]] || {
+    printf 'SDDM destination already exists; no files changed.\n' >&2; exit 1;
+  }
+  [[ ! -e $STATE && ! -L $STATE && ! -e $OVERRIDE && ! -L $OVERRIDE ]] || {
+    printf 'SDDM state/config path already exists; no files changed.\n' >&2; exit 1;
+  }
+  [[ -f $PROJECT/sddm-theme/palette.js && -f $PROJECT/sddm-selector/Main.qml ]] || exit 1
+  [[ $(<"$PROJECT/sddm-theme/metadata.desktop") == *'QtVersion=6'* && $(<"$PROJECT/sddm-selector/metadata.desktop") == *'QtVersion=6'* ]] || {
+    printf 'Both themes must declare QtVersion=6, as stock Omarchy does.\n' >&2; exit 1;
+  }
+  "$PROJECT/scripts/render-palette" --check
+  "$PROJECT/scripts/render-login-art" --check
+  install -d -m 0755 "$CUSTOM" "$SELECTOR" "$STATE"
+  install -m 0644 "$PROJECT/sddm-theme/Main.qml" "$PROJECT/sddm-theme/metadata.desktop" "$PROJECT/sddm-theme/palette.js" "$PROJECT/sddm-theme/layout.js" "$CUSTOM/"
+  install -m 0644 "$PROJECT/sddm-theme/Oxanium.ttf" "$PROJECT/sddm-theme/skull.svg" "$PROJECT/sddm-theme/diagnostic-eye.svg" "$PROJECT/sddm-theme/logo.png" "$CUSTOM/"
+  for n in 0 1 2 3 4 5 6; do install -m 0644 "$PROJECT/sddm-theme/logo-fault-$n.png" "$CUSTOM/"; done
+  install -m 0644 "$PROJECT/sddm-selector/Main.qml" "$PROJECT/sddm-selector/metadata.desktop" "$SELECTOR/"
+  printf '%s\n' "$OWNER" >"$CUSTOM/.lightqv-owner"
+  printf '%s\n' "$OWNER" >"$SELECTOR/.lightqv-owner"
+  printf '[Theme]\nselected=cyberpunk\n' >"$STATE/selected-theme"
+  chown lightqv:lightqv "$STATE/selected-theme"
+  chmod 0644 "$STATE/selected-theme"
+  printf 'SDDM assets staged; stock SDDM configuration unchanged.\n'
+  exit 0
+fi
+
+check_assets "$CUSTOM"
+check_assets "$SELECTOR"
+[[ -d $STATE && ! -L $STATE && -f $STATE/selected-theme && ! -L $STATE/selected-theme ]] || exit 1
+
+if [[ $1 == fix-qt6-metadata ]]; then
+  [[ ! -e $OVERRIDE && ! -L $OVERRIDE ]] || { printf 'Restore stock SDDM selection before fixing installed metadata.\n' >&2; exit 1; }
+  [[ $(sha256sum "$SELECTOR/metadata.desktop") == e15c7a234cdee73b782edc6468ef267c834d14301a10ccbd042a85602256a28b* ]] || {
+    printf 'Installed selector metadata changed; refusing overwrite.\n' >&2; exit 1;
+  }
+  [[ $(sha256sum "$CUSTOM/metadata.desktop") == 66c76cbad28fd2e094969e1ce6f8a9715f8c95b6ae39f5f7b62af5b48ffc66c3* ]] || {
+    printf 'Installed Cyberpunk metadata changed; refusing overwrite.\n' >&2; exit 1;
+  }
+  install -m 0644 "$PROJECT/sddm-selector/metadata.desktop" "$SELECTOR/metadata.desktop"
+  install -m 0644 "$PROJECT/sddm-theme/metadata.desktop" "$CUSTOM/metadata.desktop"
+  printf 'SDDM metadata corrected to match Omarchy Qt 6; stock selection retained.\n'
+  exit 0
+fi
+
+if [[ $1 == refresh-selector ]]; then
+  [[ ! -e $OVERRIDE && ! -L $OVERRIDE ]] || { printf 'Disable the selector before refreshing it.\n' >&2; exit 1; }
+  [[ $(sha256sum "$SELECTOR/Main.qml") == b7f68c7f27aeab097435687814d14dc84d91967c85850f98c240e9a2fb717d20* ]] || {
+    printf 'Installed selector changed; refusing to overwrite it.\n' >&2; exit 1;
+  }
+  install -m 0644 "$PROJECT/sddm-selector/Main.qml" "$SELECTOR/Main.qml"
+  printf 'Cyberpunk SDDM selector refreshed; stock selection unchanged.\n'
+  exit 0
+fi
+
+if [[ $1 == refresh-art ]]; then
+  [[ -e $PROJECT/.state/safe-mode && ! -e $OVERRIDE && ! -L $OVERRIDE ]] || {
+    printf 'Refresh SDDM artwork only in safe mode with stock selection.\n' >&2; exit 1;
+  }
+  [[ $(sha256sum "$CUSTOM/Main.qml") == 1c10757dd14756799fbfbea9c74b6d516a4047ad874d6a42571b312f7fecae1f\ * ]] || {
+    printf 'Installed SDDM view differs from recorded baseline.\n' >&2; exit 1;
+  }
+  [[ ! -e $CUSTOM/logo.png && ! -L $CUSTOM/logo.png && ! -e $CUSTOM/layout.js && ! -L $CUSTOM/layout.js ]] || {
+    printf 'Installed login asset path occupied.\n' >&2; exit 1;
+  }
+  for n in 0 1 2 3 4 5 6; do
+    [[ ! -e $CUSTOM/logo-fault-$n.png && ! -L $CUSTOM/logo-fault-$n.png ]] || {
+      printf 'Installed logo fault path occupied.\n' >&2; exit 1;
+    }
+  done
+  "$PROJECT/scripts/render-palette" --check
+  "$PROJECT/scripts/render-login-art" --check
+  install -m 0644 "$PROJECT/sddm-theme/logo.png" "$CUSTOM/logo.png"
+  for n in 0 1 2 3 4 5 6; do install -m 0644 "$PROJECT/sddm-theme/logo-fault-$n.png" "$CUSTOM/"; done
+  install -m 0644 "$PROJECT/sddm-theme/layout.js" "$CUSTOM/layout.js"
+  install -m 0644 "$PROJECT/sddm-theme/Main.qml" "$CUSTOM/Main.qml"
+  printf 'SDDM view staged for offline review; stock selection unchanged.\n'
+  exit 0
+fi
+
+if [[ $1 == activate ]]; then
+  if owned_config; then printf 'Cyberpunk selector already active.\n'; exit 0; fi
+  [[ ! -e $PROJECT/.state/safe-mode ]] || { printf 'Login/lock safe mode is active; refusing selector activation.\n' >&2; exit 1; }
+  [[ $(<"$SELECTOR/metadata.desktop") == *'QtVersion=6'* && $(<"$CUSTOM/metadata.desktop") == *'QtVersion=6'* ]] || {
+    printf 'Installed theme metadata does not select the Qt 6 greeter.\n' >&2; exit 1;
+  }
+  [[ ! -e $OVERRIDE && ! -L $OVERRIDE ]] || { printf 'Refusing to overwrite SDDM selection.\n' >&2; exit 1; }
+  [[ $(< /etc/sddm.conf.d/99-omarchy-login.conf) == *'Current=omarchy'* ]] || {
+    printf 'Recorded stock SDDM selection changed.\n' >&2; exit 1;
+  }
+  printf '[Theme]\nCurrent=lightqv-cyberpunk-selector\n' >"$OVERRIDE"
+  chmod 0644 "$OVERRIDE"
+  if [[ -f $RESTORE_PID && ! -L $RESTORE_PID ]]; then rm -- "$RESTORE_PID"; fi
+  printf 'Selector chosen on next greeter launch; Omarchy autologin unchanged.\n'
+  exit 0
+fi
+
+if [[ -e $OVERRIDE || -L $OVERRIDE ]]; then
+  owned_config || { printf 'SDDM override changed; refusing removal.\n' >&2; exit 1; }
+  pid=$(systemctl show display-manager.service -p MainPID --value)
+  [[ $pid =~ ^[1-9][0-9]*$ ]] || { printf 'SDDM daemon is unavailable.\n' >&2; exit 1; }
+  printf '%s\n' "$pid" >"$RESTORE_PID"
+  chmod 0600 "$RESTORE_PID"
+  rm -- "$OVERRIDE"
+fi
+if [[ $1 == restore ]]; then
+  printf 'Stock SDDM selection restored for next greeter launch.\n'
+  exit 0
+fi
+
+if [[ -e $RESTORE_PID || -L $RESTORE_PID ]]; then
+  [[ -f $RESTORE_PID && ! -L $RESTORE_PID && $(stat -c %u "$RESTORE_PID") == 0 ]] || exit 1
+  pid=$(systemctl show display-manager.service -p MainPID --value)
+  [[ $pid =~ ^[1-9][0-9]*$ && $pid != "$(<"$RESTORE_PID")" ]] || {
+    printf 'Restart SDDM after restoring stock selection before removing selector assets.\n' >&2; exit 1;
+  }
+fi
+
+[[ $(<"$CUSTOM/.lightqv-owner") == "$OWNER" ]] || exit 1
+[[ $(<"$SELECTOR/.lightqv-owner") == "$OWNER" ]] || exit 1
+[[ $(id -u lightqv) == $(stat -c %u "$STATE/selected-theme") ]] || exit 1
+rm -- "$CUSTOM/Main.qml" "$CUSTOM/metadata.desktop" "$CUSTOM/palette.js" "$CUSTOM/.lightqv-owner"
+if [[ -f $CUSTOM/layout.js ]]; then rm -- "$CUSTOM/layout.js"; fi
+if [[ -f $CUSTOM/Oxanium.ttf ]]; then rm -- "$CUSTOM/Oxanium.ttf" "$CUSTOM/skull.svg"; fi
+if [[ -f $CUSTOM/flatline-skull.svg ]]; then rm -- "$CUSTOM/flatline-skull.svg"; fi
+if [[ -f $CUSTOM/diagnostic-skull.svg ]]; then rm -- "$CUSTOM/diagnostic-skull.svg"; fi
+if [[ -f $CUSTOM/diagnostic-eye.svg ]]; then rm -- "$CUSTOM/diagnostic-eye.svg"; fi
+if [[ -f $CUSTOM/logo.png ]]; then rm -- "$CUSTOM/logo.png"; fi
+if [[ -f $CUSTOM/logo-fault-0.png ]]; then
+  for n in 0 1 2 3 4 5 6; do rm -- "$CUSTOM/logo-fault-$n.png"; done
+fi
+rm -- "$SELECTOR/Main.qml" "$SELECTOR/metadata.desktop" "$SELECTOR/.lightqv-owner"
+rmdir -- "$CUSTOM" "$SELECTOR"
+rm -- "$STATE/selected-theme"
+if [[ -f $RESTORE_PID ]]; then rm -- "$RESTORE_PID"; fi
+rmdir -- "$STATE"
+printf 'Cyberpunk SDDM assets removed; stock configuration retained.\n'

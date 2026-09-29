@@ -10,6 +10,7 @@ Item {
   id: root
 
   property bool opened: false
+  property bool animateFill: false
   property string icon: ""
   property string message: ""
   property string iconKey: ""
@@ -31,6 +32,8 @@ Item {
 
   function show(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {
     var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration)
+    var alreadyVisible = opened
+    animateFill = alreadyVisible
     iconKey = next.iconKey
     maxValue = next.maxValue
     hasProgress = next.hasProgress
@@ -50,12 +53,12 @@ Item {
     } catch (e) {}
   }
 
-  function close() { opened = false }
+  function close() { opened = false; animateFill = false }
 
   Timer {
     id: hideTimer
     interval: root.duration
-    onTriggered: root.opened = false
+    onTriggered: root.close()
   }
 
   IpcHandler {
@@ -97,7 +100,7 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.iconLarge
         style: Text.Outline
-        styleColor: "#091015"
+        styleColor: Color.background
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
       }
@@ -113,7 +116,7 @@ Item {
         font.bold: true
         color: root.accent
         style: Text.Outline
-        styleColor: "#091015"
+        styleColor: Color.background
         elide: Text.ElideRight
       }
       Text {
@@ -128,7 +131,7 @@ Item {
         horizontalAlignment: root.longMessage ? Text.AlignLeft : Text.AlignRight
         color: root.accent
         style: Text.Outline
-        styleColor: "#091015"
+        styleColor: Color.background
         elide: Text.ElideRight
       }
       Item {
@@ -138,6 +141,11 @@ Item {
         width: Math.max(0, card.width - x - Style.space(8))
         height: Style.space(22)
         visible: root.hasProgress
+        property real fillWidth: root.hasProgress ? width * root.value / root.maxValue : 0
+        Behavior on fillWidth {
+          enabled: root.animateFill
+          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+        }
 
         Rectangle {
           width: parent.width
@@ -149,46 +157,54 @@ Item {
         Canvas {
           id: glow
           anchors.fill: parent
-          property real fillWidth: root.hasProgress ? progress.width * root.value / root.maxValue : 0
-          onFillWidthChanged: requestPaint()
+          visible: progress.fillWidth > 0
           onWidthChanged: requestPaint()
           onHeightChanged: requestPaint()
-          Behavior on fillWidth {
-            enabled: root.opened
-            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          onVisibleChanged: requestPaint()
+          Connections {
+            target: progress
+            function onFillWidthChanged() { glow.requestPaint() }
           }
           Connections {
             target: root
-            function onAccentChanged() { glow.requestPaint() }
             function onBarColorChanged() { glow.requestPaint() }
           }
           onPaint: {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
-            if (fillWidth <= 0) return
-            ctx.beginPath()
-            ctx.moveTo(0, height / 2)
-            ctx.lineTo(Math.min(width, fillWidth), height / 2)
-            ctx.strokeStyle = String(root.barColor)
-            ctx.shadowColor = ctx.strokeStyle
-            ctx.shadowBlur = Style.space(16)
-            ctx.lineWidth = Math.max(4, Style.space(5))
-            ctx.stroke()
-            // A narrow, bright core reads as neon even over a light wallpaper.
-            ctx.shadowBlur = 0
-            ctx.strokeStyle = String(root.accent)
-            ctx.lineWidth = Math.max(2, Style.space(2))
-            ctx.stroke()
+            if (progress.fillWidth <= 0 || width <= 0 || height <= 0) return
+            var c = root.barColor
+            function rgba(alpha) {
+              return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + alpha + ")"
+            }
+            // A Gaussian around the 3px core avoids the flat 8/15px bands
+            // and their hard rectangular edges on every opening.
+            var centre = height / 2
+            var span = Math.min(width, progress.fillWidth)
+            for (var y = 0; y < height; y++) {
+              var distance = Math.abs(y + 0.5 - centre)
+              var alpha = 0.32 * Math.exp(-distance * distance / (2 * 2.4 * 2.4))
+              if (alpha < 0.002) continue
+              ctx.fillStyle = rgba(alpha)
+              ctx.fillRect(0, y, span, 1)
+            }
           }
+        }
+        Rectangle {
+          width: progress.fillWidth
+          height: Math.max(2, Style.space(3))
+          anchors.verticalCenter: parent.verticalCenter
+          color: root.accent
+          visible: width > 0
         }
 
         Rectangle {
           width: Math.max(2, Style.space(2))
           height: Style.space(11)
-          x: Math.max(0, Math.min(parent.width - width, glow.fillWidth - width / 2))
+          x: Math.max(0, Math.min(parent.width - width, progress.fillWidth - width / 2))
           anchors.verticalCenter: parent.verticalCenter
-          visible: glow.fillWidth > 0
-          color: "#f5fffc"
+          visible: progress.fillWidth > 0
+          color: Color.foreground
         }
       }
     }

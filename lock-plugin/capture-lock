@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+[[ $# == 1 && -n ${XDG_RUNTIME_DIR:-} && $1 == "$XDG_RUNTIME_DIR/lightqv-cyberpunk-lock.png" ]] || exit 1
+# Never freeze the pre-lock terminal screensaver in the authentication view.
+if hyprctl -j clients | jq -e 'any(.[]; .class == "org.omarchy.screensaver")' >/dev/null; then
+  exit 1
+fi
+partial="$1.partial"
+trap 'rm -f -- "$partial"' EXIT
+timeout 0.35s grim -t png "$partial"
+mv -f -- "$partial" "$1"

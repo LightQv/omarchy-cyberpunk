@@ -32,6 +32,24 @@
   sources for personal use when missing.
 - `theme/colors.toml` and `theme/shell.toml`: original red/turquoise palette and
   styles; no copyrighted game assets are included.
+- `plymouth-theme/logo*.png` and `sddm-theme/logo*.png`: recolored and animated
+  from Omarchy's stock Plymouth wordmark under Omarchy's MIT license. The
+  source shape is in `/usr/share/omarchy/default/plymouth/logo.png`; its MIT
+  notice is retained in `LICENSE`.
+- `lock-plugin/Service.qml` and `StockLockView.qml`: generated from the pinned
+  installed Omarchy 4.0.4-1 lock under its MIT license; the generator rejects
+  unreviewed upstream authentication changes.
+- `sddm-theme/diagnostic-eye.svg`: original, hand-drawn optic artwork inspired by
+  the user's quickhack reference images; no game image is bundled. The
+  [RedModding UI/icon documentation](https://wiki.redmodding.org/cyberpunk-2077-modding/modding-guides/custom-icons-and-ui.md)
+  was consulted for visual hierarchy and colour roles, not copied artwork.
+  No pixels or vector paths were extracted from the game screenshot. The
+  licensed fallback is `sddm-theme/skull.svg`, modified from the
+  [Lucide skull icon](https://lucide.dev/icons/skull) under the ISC license;
+  its notice is retained in `sddm-theme/SKULL-LICENSE.txt`.
+- `sddm-theme/Oxanium.ttf`: Oxanium from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/oxanium),
+  licensed under the SIL Open Font License 1.1. The font copyright and full
+  licence are in `sddm-theme/OXANIUM-LICENSE.txt`.
 - No CyberArch-Shell code or assets are tracked or distributed. Its public
   repository has no declared license; its menu is only a visual reference.
 

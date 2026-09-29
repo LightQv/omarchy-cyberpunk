@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Private, bounded capture before the Polkit overlay becomes visible.
+set -euo pipefail
+umask 077
+[[ $# == 1 && -n ${XDG_RUNTIME_DIR:-} && $1 == "$XDG_RUNTIME_DIR/lightqv-cyberpunk-polkit.png" ]] || exit 1
+[[ ! -L $1 && ! -L $1.partial ]] || exit 1
+[[ $(hyprctl -j monitors | jq length) == 1 ]] || exit 1
+trap 'rm -f -- "$1.partial"' EXIT
+timeout 0.7s grim -t png -l 1 "$1.partial"
+mv -f -- "$1.partial" "$1"

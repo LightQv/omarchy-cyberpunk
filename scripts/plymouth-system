@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Stage/remove only: never switch the live boot theme or rebuild initramfs.
+set -euo pipefail
+PROJECT=/home/lightqv/Projects/omarchy-cyberpunk
+DEST=/usr/share/plymouth/themes/lightqv-cyberpunk
+MARKER=omarchy-cyberpunk:lightqv:1
+FILES=(lightqv-cyberpunk.plymouth lightqv-cyberpunk.script frame.png logo.png logo-fault-0.png logo-fault-1.png logo-fault-2.png logo-fault-3.png logo-fault-4.png logo-fault-5.png logo-fault-6.png scanner.png entry.png placeholder.png action.png hint.png bullet.png caret.png progress_box.png progress_bar.png)
+
+[[ $# == 1 && ( $1 == stage || $1 == status || $1 == remove ) ]] || {
+  printf 'Usage: scripts/plymouth-system {stage|status|remove}\n' >&2; exit 2;
+}
+owned() { [[ -d $DEST && ! -L $DEST && -f $DEST/.lightqv-owner && ! -L $DEST/.lightqv-owner && $(<"$DEST/.lightqv-owner") == "$MARKER" ]]; }
+if [[ $1 == status ]]; then
+  if owned; then printf 'Cyberpunk Plymouth theme staged; no boot selection changed.\n'
+  else printf 'Cyberpunk Plymouth theme not staged.\n'; fi
+  exit 0
+fi
+[[ $EUID == 0 ]] || { printf 'Run using interactive sudo or pkexec.\n' >&2; exit 1; }
+if [[ $1 == stage ]]; then
+  [[ ! -e $DEST && ! -L $DEST ]] || { printf 'Plymouth destination occupied.\n' >&2; exit 1; }
+  "$PROJECT/scripts/render-login-art" --check
+  [[ -d /usr/share/plymouth/themes ]] || exit 1
+  for file in "${FILES[@]}"; do [[ -f $PROJECT/plymouth-theme/$file && ! -L $PROJECT/plymouth-theme/$file ]] || exit 1; done
+  install -d -m 0755 "$DEST"
+  for file in "${FILES[@]}"; do install -m 0644 "$PROJECT/plymouth-theme/$file" "$DEST/$file"; done
+  printf '%s\n' "$MARKER" >"$DEST/.lightqv-owner"
+  chmod 0644 "$DEST/.lightqv-owner"
+  printf 'Plymouth artwork staged; stock theme and initramfs unchanged.\n'
+  exit 0
+fi
+owned || { printf 'Plymouth destination not owned.\n' >&2; exit 1; }
+[[ $(ls -A "$DEST" | wc -l) == $((${#FILES[@]} + 1)) ]] || { printf 'Unexpected Plymouth files; refusing removal.\n' >&2; exit 1; }
+for file in "${FILES[@]}"; do [[ -f $DEST/$file && ! -L $DEST/$file ]] || exit 1; done
+[[ $(plymouth-set-default-theme) != lightqv-cyberpunk ]] || { printf 'Restore stock Plymouth and rebuild/verify initramfs first.\n' >&2; exit 1; }
+for file in "${FILES[@]}"; do rm -- "$DEST/$file"; done
+rm -- "$DEST/.lightqv-owner"
+rmdir -- "$DEST"
+printf 'Owned Plymouth theme removed; stock boot selection unchanged.\n'

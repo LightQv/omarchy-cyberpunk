@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+for (( attempt=0; attempt<3600; attempt++ )); do
+  if lock_unlocked; then
+    exec "$PROJECT/scripts/verify" --repair
+  fi
+  sleep 1
+done
+die "lock remained active or its state could not be read; rerun verify --repair after unlock"

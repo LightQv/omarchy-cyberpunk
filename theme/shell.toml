@@ -96,7 +96,7 @@ selected-border-alpha = 1.0
 
 [polkit]
 background = "#0c1015"
-background-alpha = 1.0
+background-alpha = 0.86
 text = "#e5f1ee"
 text-error = "#ff3045"
 border = "#53e3d2"

@@ -1,0 +1,9 @@
+[SddmGreeterTheme]
+Name=Cyberpunk
+Description=Cyberpunk game-menu inspired login for Omarchy
+Author=LightQv
+Type=sddm-theme
+Version=1.0
+QtVersion=6
+Website=https://github.com/LightQv/omarchy-cyberpunk
+MainScript=Main.qml

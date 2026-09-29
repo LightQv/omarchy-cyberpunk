@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Explicit trial: never replace an active compositor session lock.
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+mode=${1:-}
+[[ $# == 1 ]] || die "usage: scripts/lock-trial {prepare|activate|restore|remove|status}"
+case $mode in prepare|activate|restore|remove|status) ;; *) die "unknown lock-trial action: $mode" ;; esac
+
+unlocked() {
+  local state compositor
+  state=$(omarchy-shell lock status) || die "lock IPC unavailable; do not swap services"
+  jq -e '.locked == false and .requested == false and .sessionLocked == false and .secure == false and .passwordPam == true' <<<"$state" >/dev/null ||
+    die "lock is active or PAM is not ready; do not swap services"
+  if omarchy-hyprland-session-locked; then
+    die "compositor still holds a session lock"
+  else
+    compositor=$?
+  fi
+  [[ $compositor == 1 ]] || die "compositor lock state is indeterminate"
+}
+
+if [[ $mode == status ]]; then
+  omarchy-shell lock status
+  omarchy plugin list --json | jq -r --arg clone "$LOCK_ID" '.[] | select(.id == "omarchy.lock" or .id == $clone) | [.id, .enabled] | @tsv'
+  exit 0
+fi
+
+exec 9>"$LOCK"
+flock 9
+"$PROJECT/scripts/build-lock" --check || die "clone differs from pinned Omarchy lock"
+omarchy plugin validate "$LOCK_SOURCE"
+unlocked
+
+if [[ $mode == prepare ]]; then
+  [[ $(current_theme) == cyberpunk ]] || die "Cyberpunk must be active for lock trial"
+  [[ -d $(dirname "$LOCK_LINK") ]] || die "plugin directory missing"
+  unoccupied "$LOCK_LINK" || die "plugin path is occupied: $LOCK_LINK"
+  menu_enabled omarchy.lock || die "stock lock must be active"
+  ln -s "$LOCK_SOURCE" "$LOCK_LINK"
+  omarchy-shell shell rescanPlugins >/dev/null
+  if ! omarchy plugin list --json | jq -e --arg id "$LOCK_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null; then
+    owned_link "$LOCK_LINK" "$LOCK_SOURCE" && rm -- "$LOCK_LINK"
+    die "clone not discovered disabled; stock lock was preserved"
+  fi
+  printf 'Cyberpunk: lock clone staged but not enabled.\n'
+elif [[ $mode == activate ]]; then
+  [[ ! -e $SAFE_MODE ]] || die "login/lock safe mode is active; refusing custom lock"
+  [[ $(current_theme) == cyberpunk ]] || die "Cyberpunk must be active for lock trial"
+  owned_link "$LOCK_LINK" "$LOCK_SOURCE" || die "clone path not owned"
+  menu_enabled omarchy.lock || die "stock lock must be active before trial"
+  if ! omarchy plugin enable "$LOCK_ID"; then
+    omarchy plugin enable omarchy.lock || true
+    die "clone activation failed; requested stock lock"
+  fi
+  if ! menu_enabled "$LOCK_ID" || menu_enabled omarchy.lock || ! omarchy-shell lock status | jq -e '.passwordPam == true and .locked == false' >/dev/null; then
+    omarchy plugin enable omarchy.lock || true
+    die "clone not ready; requested stock lock"
+  fi
+  printf 'Cyberpunk: lock clone active; restore with scripts/lock-trial restore while unlocked.\n'
+elif [[ $mode == restore || $mode == remove ]]; then
+  if menu_enabled "$LOCK_ID"; then
+    owned_link "$LOCK_LINK" "$LOCK_SOURCE" || die "clone path no longer owned"
+    omarchy plugin enable omarchy.lock || die "stock lock could not be restored; leave clone installed"
+  fi
+  menu_enabled omarchy.lock || die "stock lock unavailable; leave clone installed"
+  ! menu_enabled "$LOCK_ID" || die "clone still active; leave clone installed"
+  omarchy-shell lock status | jq -e '.passwordPam == true and .locked == false' >/dev/null || die "stock lock not ready"
+  if [[ $mode == remove ]]; then
+    owned_link "$LOCK_LINK" "$LOCK_SOURCE" || die "clone path no longer owned"
+    omarchy plugin remove "$LOCK_ID" --yes
+  fi
+  printf 'Cyberpunk: stock lock restored and ready.\n'
+fi

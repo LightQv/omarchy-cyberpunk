@@ -1,6 +1,8 @@
 *.bak
 .baseline/
 .state/
+lock-plugin/.preview/
+preview/
 *.log
 __pycache__/
 *.pyc

@@ -89,6 +89,134 @@ After installing, check the menu button, `Super+Space`, `Super+Alt+Space`, and
 `Super+Escape`, and a select/input caller before treating this as daily-ready.
 See `THIRD_PARTY.md` for attribution. This is not affiliated with CD PROJEKT RED.
 
+The boot-login, session-lock, authentication, palette and volume-glow work is detailed in
+[LOGIN-LOCK-PALETTE-OSD-PLAN.md](LOGIN-LOCK-PALETTE-OSD-PLAN.md).
+
+Edit `theme/colors.toml` to change Cyberpunk's base colors. Run
+`scripts/render-palette --write` before reapplying the theme; `--check` verifies
+the derived shell roles and bright ANSI variants. The graphical sudo prompt
+reads the active Cyberpunk palette when it opens. Omarchy's autologin settings
+remain unchanged.
+
+`sddm-theme/` and `sddm-selector/` are staged under new, project-owned SDDM
+theme directories, but the installed SDDM configuration selects Omarchy's
+stock greeter. `lock-plugin/` is a pinned clone of Omarchy's lock with a themed
+view and private, bounded pre-lock capture. Run `scripts/build-lock --check`
+after Omarchy updates; it refuses a changed upstream authentication
+implementation until reviewed. The clone passed a real password unlock trial,
+but stock `omarchy.lock` is now active. Autologin, PAM, and sudoers are
+unchanged.
+
+**Login/lock safe mode (September 25, 2026):** `.state/safe-mode` keeps the
+SDDM marker on stock Omarchy and prevents theme hooks from re-enabling the
+custom lock. The project-owned SDDM override has been removed. Do not retry
+logout/login trials while this flag is present. The SDDM theme assets remain
+staged only because the running daemon may still have the selector cached;
+`scripts/sddm-system remove` refuses to remove them until that daemon has
+restarted. A later normal boot can satisfy that guard without restarting the
+current desktop session. After that boot, from a visible terminal run
+`sudo ~/Projects/omarchy-cyberpunk/scripts/sddm-system remove` to remove the
+owned system-side assets; then `scripts/uninstall-dev` is available if the
+whole theme is no longer wanted. Do not delete the staged SDDM files while
+the current daemon might still reference them.
+
+The first real logout trial ended at a black screen: SDDM launched the **Qt 5**
+`/usr/bin/sddm-greeter` and it immediately failed to load `libQt5Quick.so.5`.
+Our selector metadata omitted `QtVersion=6`, which the stock Omarchy theme
+declares. That omission was our integration bug. Both source and staged SDDM
+theme metadata now declare Qt 6, but the custom greeter has **not** passed a
+real login test. Hyprland also dumped core in Aquamarine's DRM teardown during
+logout; the log does not establish whether this would occur on an ordinary
+logout. The power-on password unlocks the LUKS-encrypted root volume; SDDM
+still autologs in afterward, so the boot progress display is separate from
+the custom greeter.
+
+## Visual design previews (safe mode remains on)
+
+The new source SDDM greeter uses the old eye-login's background and outer-frame
+proportions; Plymouth mirrors its fine side rails, header and footer. The input
+remains compact: `theme/login-layout.json` supplies the lock
+prompt's geometry and the **0.75 effective scale measured from the earlier
+1920×1080 lock reference** to SDDM and Plymouth. The old 1.9-scale centre was much
+larger than the actual lock form.
+A full-turquoise neon Omarchy wordmark has **visible lettering about 1.7× as wide
+as the lock prompt**, close above a vertically centred uppercase password field.
+Lock, SDDM and Plymouth use the sudo input's plain 1 px red outline, solid 4 px
+left edge and the same translucent red fill as their submit buttons. Sudo and
+Polkit use that matching fill too; `>` and the custom beveled masks remain.
+Lock and SDDM derive the red caret from the real input position (including clicks,
+selection and keyboard edits); Plymouth receives only a masked-bullet count and
+can show an end marker only. SDDM keeps a real LOG IN action and an
+indeterminate authentication bar. `plymouth-theme/` is a separately owned boot
+design with matching framing, wordmark, and a keyboard-only disk-unlock prompt.
+Both screens use the same seven short, staggered logo-only fracture frames on
+first appearance (uneven timing, localized to portions of the letters, with
+scattered **horizontal** sparks extending into the transparent margins on every beat); the
+logo settles after ~480 ms without looping or disturbing auth controls. The
+root `preview/` folder contains the boot and login stills and one-shot MP4s.
+These are **review artifacts**; Plymouth still uses its PNG frames and boot-progress
+callbacks. The lock's frozen-desktop glitch remains exclusive to surfaces with
+captured desktop imagery.
+After disk unlock it replaces the entire prompt with a progress bar at the
+former password field's position, using Plymouth's existing fake-to-real boot
+progress callbacks.
+Render both logo copies and boot artwork after changing theme colors with
+`python scripts/render-login-art --write`; check with `--check`. The standalone
+`python scripts/preview-login-art --mp4` and `python scripts/preview-sddm --mp4`
+commands place detailed diagnostic and masked captures in ignored
+`.state/diagnostic-previews/`; `--output-dir` can direct them elsewhere.
+The Plymouth still is a visual mock, not a live boot test.
+For a consistent five-screen final review, run `python scripts/preview-final`,
+then `python scripts/verify-final-previews`. The ignored root `preview/`
+directory contains exactly five full-resolution 1920×1080 PNG and
+50 FPS H.264 MP4 pairs for `boot`, `login`, `lock`, `sudo`, and `polkit`.
+The boot and login clips use their real source-only preview renderers; the
+lock and Polkit clips use the shared HUD and frozen-backdrop fault in an
+auth-free QML scene, and the sudo clip renders the actual askpass widget with
+a local sample background and disabled submission. All clips show a one-shot
+glitch and a settled hold. The Polkit review uses the current `USER` like the
+live Polkit agent and sudo askpass; sudo's corner labels, sequence heading,
+and left-aligned hint match Polkit's framing. None records the desktop or
+requests credentials.
+`scripts/plymouth-system {stage|status|remove}` can stage/remove only a new
+owned theme directory; it never changes boot selection or builds an initramfs.
+The SDDM source also differs from the earlier system-staged copy;
+`scripts/sddm-system refresh-art` has a safe-mode, stock-selector and installed
+baseline-hash guard before replacing that copy. No installed boot/login artwork
+has been updated yet.
+
+The lock artwork has a scanner frame, a beveled LOG IN button, matching
+masks over Omarchy's existing password field, inward-bowing corner labels,
+and a 760 ms four-beat frozen-backdrop fault with strips and small square
+patches at entry, password submission or failure. The password controls stay
+clear of the displaced backdrop. Some faults show red-toned displaced pixels;
+others show a full colour negative where source pixels are colourful (red
+becomes cyan), avoiding the grey look of half-opacity inversion.
+Login and lock remain source-only design candidates: safe mode retains the
+stock greeter and lock. The Cyberpunk sudo askpass and Polkit clone already
+run on the selected theme; their revised fullscreen views use **SUBMIT** rather
+than the lock's **LOG IN** and leave their respective authentication flows intact.
+
+From this project directory, preview the login with
+`sddm-greeter-qt6 --test-mode --theme "$PWD/sddm-theme"`. Test mode is for
+visual inspection, not password testing; do not enter a real password there.
+Preview the lock artwork with `scripts/preview-lock`; use
+`scripts/preview-lock --glitch` to hold the brief signal fault at its peak
+for a review screenshot, or `scripts/preview-lock --record` to repeat the
+effect while making a short local recording. These commands generate a
+temporary, local-only blurred wallpaper and open a fullscreen **mock** with
+no PAM or session lock; closing it removes the generated image. Neither
+preview disables `.state/safe-mode` or changes SDDM's real selection.
+`scripts/build-shader --check` verifies the baked Qt shader used for the
+brief negative-colour portions of the frozen backdrop; `--write` regenerates it
+after editing `lock-plugin/negative.frag`.
+The ten files in ignored `preview/` are the sole final-review set. Local
+previews can contain personal desktop imagery and stay excluded from Git.
+The [RedModding icon/UI guides](https://wiki.redmodding.org/cyberpunk-2077-modding/modding-guides/custom-icons-and-ui.md)
+and [HUD colour-role reference](https://wiki.redmodding.org/cyberpunk-2077-modding/modding-guides/hud-painter-resource.md)
+inform the artwork and hierarchy; this desktop theme does not use REDengine
+assets or its UI runtime.
+
 ## Verified so far
 
 - Plugin manifest and theme TOML parse; copied Omarchy menu data model is

@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Bake and verify the Qt 6 fragment shader for localized negative faults."""
+
+import argparse
+import subprocess
+import tempfile
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+SOURCE = ROOT / "lock-plugin/negative.frag"
+OUTPUT = SOURCE.with_suffix(".frag.qsb")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    actions = parser.add_mutually_exclusive_group(required=True)
+    actions.add_argument("--check", action="store_true")
+    actions.add_argument("--write", action="store_true")
+    args = parser.parse_args()
+
+    with tempfile.TemporaryDirectory(dir="/tmp/opencode") as directory:
+        baked = Path(directory) / "negative.frag.qsb"
+        result = subprocess.run(
+            ["/usr/lib/qt6/bin/qsb", "--qt6", "-o", str(baked), str(SOURCE)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode:
+            parser.exit(result.returncode, result.stderr)
+        if args.check:
+            if not OUTPUT.is_file() or OUTPUT.read_bytes() != baked.read_bytes():
+                parser.exit(1, "Lock shader differs from source; run scripts/build-shader --write.\n")
+        else:
+            OUTPUT.write_bytes(baked.read_bytes())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

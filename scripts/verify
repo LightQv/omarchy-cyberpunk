@@ -5,29 +5,42 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 mode=${1:---check}
 [[ $mode == --check || $mode == --repair || $mode == --removed ]] || die "usage: scripts/verify [--check|--repair|--removed]"
 if [[ $mode == --removed ]]; then
-  for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$HOOK_LINK" "$BOOT_LINK"; do
+  for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK"; do
     unoccupied "$path" || die "project path remains or is occupied: $path"
   done
   ! clone_referenced || die "clone references remain in shell.json"
   ! polkit_referenced || die "Polkit clone references remain in shell.json"
   ! notify_referenced || die "notifications clone references remain in shell.json"
   ! osd_referenced || die "OSD clone references remain in shell.json"
+  ! lock_referenced || die "lock clone references remain in shell.json"
+  [[ ! -e /etc/sddm.conf.d/zz-lightqv-cyberpunk.conf && ! -e /usr/share/sddm/themes/lightqv-cyberpunk-selector ]] || die "project SDDM selector remains installed"
   "$PROJECT/scripts/manage-bashrc.py" absent
   [[ $(current_theme) != cyberpunk ]] || die "Cyberpunk theme remains active"
   menu_enabled omarchy.menu || die "stock menu is not enabled"
   menu_enabled omarchy.polkit || die "stock Polkit agent is not enabled"
   menu_enabled omarchy.notifications || die "stock notifications are not enabled"
   menu_enabled omarchy.osd || die "stock OSD is not enabled"
+  menu_enabled omarchy.lock || die "stock lock is not enabled"
   wait_for_menu || die "stock menu ping failed"
   printf 'Cyberpunk: project removed; stock menu operational.\n'
   exit 0
 fi
 installed || die "project links/hook are missing or no longer owned by this project"
+"$PROJECT/scripts/render-palette" --check || die "Cyberpunk palette output is stale"
 
 exec 9>"$LOCK"
 flock 9
 for attempt in 1 2 3 4; do
   selected=$(current_theme)
+  if [[ -e /var/lib/omarchy-cyberpunk/selected-theme ]]; then
+    desired_marker=omarchy
+    [[ $selected == cyberpunk && ! -e $SAFE_MODE ]] && desired_marker=cyberpunk
+    if [[ $mode == --repair ]]; then
+      if [[ $desired_marker == cyberpunk ]]; then "$PROJECT/scripts/sddm-marker" sync
+      else "$PROJECT/scripts/sddm-marker" stock; fi
+    fi
+    [[ $("$PROJECT/scripts/sddm-marker" status) == "$desired_marker" ]] || die "SDDM marker disagrees with selected theme"
+  fi
   if [[ $selected == cyberpunk ]]; then
     if ! menu_enabled "$PLUGIN_ID"; then
       [[ $mode == --repair ]] || die "Cyberpunk selected but menu clone is inactive"
@@ -91,6 +104,36 @@ for attempt in 1 2 3 4; do
     fi
     ! clone_referenced || die "clone references remain after disabling"
     menu_enabled omarchy.menu || die "stock menu did not restore"
+  fi
+  desired_lock=omarchy.lock
+  [[ $selected == cyberpunk && ! -e $SAFE_MODE ]] && desired_lock=$LOCK_ID
+  if [[ $desired_lock == "$LOCK_ID" ]]; then
+    needs_lock_switch=false
+    menu_enabled "$LOCK_ID" || needs_lock_switch=true
+    menu_enabled omarchy.lock && needs_lock_switch=true
+  else
+    needs_lock_switch=false
+    lock_referenced && needs_lock_switch=true
+    menu_enabled omarchy.lock || needs_lock_switch=true
+  fi
+  if [[ $needs_lock_switch == true ]]; then
+    [[ $mode == --repair ]] || die "active lock disagrees with selected theme or safe mode"
+    if lock_unlocked; then
+      if ! omarchy plugin enable "$desired_lock"; then
+        omarchy plugin enable omarchy.lock || true
+        die "lock transition failed; requested stock lock"
+      fi
+    else
+      "$PROJECT/scripts/queue-lock-transition"
+    fi
+  fi
+  if menu_enabled "$desired_lock"; then
+    if [[ $desired_lock == omarchy.lock ]]; then
+      ! lock_referenced || die "lock clone references remain after stock restore"
+    else
+      ! menu_enabled omarchy.lock || die "stock lock still active beside clone"
+    fi
+    omarchy-shell lock status | jq -e '.passwordPam == true' >/dev/null || die "selected lock PAM is not ready"
   fi
   [[ $(current_theme) == "$selected" ]] && break
   (( attempt < 4 )) || die "theme kept changing; rerun scripts/verify --repair"

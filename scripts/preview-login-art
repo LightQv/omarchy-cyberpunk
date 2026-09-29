@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Make local-only Plymouth stills without starting Plymouth or asking for a key."""
+
+from pathlib import Path
+import json
+import importlib.util
+import argparse
+from importlib.machinery import SourceFileLoader
+
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parent.parent
+ART = ROOT / "plymouth-theme"
+OUT = ROOT / ".state/diagnostic-previews"
+LAYOUT = json.loads((ROOT / "theme/login-layout.json").read_text())
+loader = SourceFileLoader("login_art", str(ROOT / "scripts/render-login-art"))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+art_recipe = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(art_recipe)
+
+
+def geometry(width, height):
+    with Image.open(ART / "logo.png") as logo:
+        logo_height = LAYOUT["logoWidth"] * logo.height / logo.width
+    scale = min(LAYOUT["baseScale"] * width / LAYOUT["referenceWidth"],
+                LAYOUT["baseScale"] * height / LAYOUT["referenceHeight"],
+                (width - 50) / LAYOUT["promptWidth"])
+    prompt_y = (height / 2 + min(112, height * 0.105) * scale -
+                (LAYOUT["fieldY"] + LAYOUT["fieldHeight"] / 2) * scale)
+    prompt_top = prompt_y - (LAYOUT["logoGap"] + logo_height) * scale
+    prompt_x = (width - LAYOUT["promptWidth"] * scale) / 2
+    return scale, prompt_x, prompt_y, prompt_top
+
+
+def frame(progress=None, bullets=0, logo_tick=sum(art_recipe.LOGO_HOLDS)):
+    canvas = Image.open(ART / "frame.png").convert("RGBA")
+    scale, prompt_x, prompt_y, logo_top = geometry(canvas.width, canvas.height)
+
+    def place(name, x, y):
+        art = Image.open(ART / name).convert("RGBA")
+        art = art.resize((round(art.width * scale / 2), round(art.height * scale / 2)), Image.Resampling.LANCZOS)
+        canvas.alpha_composite(art, (round(x), round(y)))
+
+    logo_width = LAYOUT["logoWidth"] * scale
+    logo_step = -1
+    elapsed = 0
+    for index, hold in enumerate(art_recipe.LOGO_HOLDS):
+        elapsed += hold
+        if logo_tick < elapsed:
+            logo_step = index
+            break
+    logo_file = "logo.png" if logo_step == -1 else f"logo-fault-{logo_step}.png"
+    logo = Image.open(ART / logo_file).convert("RGBA")
+    logo = logo.resize((round(logo_width), round(logo.height * logo_width / logo.width)), Image.Resampling.LANCZOS)
+    canvas.alpha_composite(logo, (round((canvas.width - logo_width) / 2), round(logo_top)))
+    entry_x = prompt_x + (LAYOUT["promptWidth"] - LAYOUT["fieldWidth"]) / 2 * scale
+    entry_y = prompt_y + LAYOUT["fieldY"] * scale
+    if progress is None:
+        place("scanner.png", prompt_x, prompt_y)
+        place("entry.png", entry_x, entry_y)
+        if bullets:
+            count = min(bullets, 21)
+            step = min(20, 301 / count)
+            glyph = min(14, step * 0.76)
+            with Image.open(ART / "bullet.png") as art:
+                mask = art.convert("RGBA").resize((round(16 * scale * glyph / 14), round(30 * scale)), Image.Resampling.LANCZOS)
+            for index in range(count):
+                canvas.alpha_composite(mask, (round(entry_x + (56 + index * step) * scale),
+                                              round(entry_y + (54 - 30) / 2 * scale)))
+            with Image.open(ART / "caret.png") as art:
+                cursor = art.convert("RGBA").resize((round(2 * scale), round(25 * scale)), Image.Resampling.LANCZOS)
+            canvas.alpha_composite(cursor, (round(entry_x + (56 + count * step + 2) * scale),
+                                             round(entry_y + (54 - 25) / 2 * scale)))
+        else:
+            place("placeholder.png", entry_x, entry_y)
+        place("action.png", entry_x, prompt_y + LAYOUT["buttonY"] * scale)
+        place("hint.png", entry_x, prompt_y + LAYOUT["hintY"] * scale)
+    else:
+        bar_y = entry_y + (LAYOUT["fieldHeight"] - 18) / 2 * scale
+        place("progress_box.png", entry_x, bar_y)
+        fill = Image.open(ART / "progress_bar.png").convert("RGBA")
+        # Match Plymouth's image-scaling progression, not a guessed login %.
+        fill = fill.resize((round(LAYOUT["fieldWidth"] * progress * scale), round(18 * scale)), Image.Resampling.LANCZOS)
+        canvas.alpha_composite(fill, (round(entry_x), round(bar_y)))
+    return canvas.convert("RGB")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mp4", action="store_true", help="encode full-size and close-up offline review videos")
+    parser.add_argument("--output-dir", type=Path, default=OUT,
+                        help="directory for diagnostic artifacts (default: ignored state)")
+    args = parser.parse_args()
+    OUT = args.output_dir
+    OUT.mkdir(parents=True, exist_ok=True)
+    frame().save(OUT / "boot-unlock.png")
+    frame(bullets=7).save(OUT / "boot-masked.png")
+    frame(0.62).save(OUT / "boot-progress.png")
+    frames = [frame(logo_tick=tick).resize((960, 540), Image.Resampling.LANCZOS)
+              for tick in range(0, sum(art_recipe.LOGO_HOLDS) + 7)]
+    frames[0].save(OUT / "boot-appearance.webp", save_all=True, append_images=frames[1:],
+                   duration=20, loop=0, quality=85)
+    if args.mp4:
+        from preview_video import encode_previews
+
+        # Keep the final, clean logo on screen for a full second after its
+        # one-shot entrance. This does not affect the runtime Plymouth theme.
+        total = sum(art_recipe.LOGO_HOLDS) + 50
+        encode_previews((frame(logo_tick=tick) for tick in range(total)),
+                        OUT / "boot-appearance.mp4", OUT / "boot-logo.mp4")

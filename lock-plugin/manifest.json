@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "lightqv.cyberpunk-lock",
+  "name": "Cyberpunk Lock Screen",
+  "version": "1.0.0",
+  "author": "LightQv",
+  "description": "Visual-only Omarchy lock clone retaining first-party authentication.",
+  "omarchy": { "capabilities": ["authentication"], "clonedFrom": "omarchy.lock" },
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": { "service": "Service.qml" }
+}

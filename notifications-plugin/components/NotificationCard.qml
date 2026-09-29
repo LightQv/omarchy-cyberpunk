@@ -53,7 +53,7 @@ BorderSurface {
   // The warning triangle stays put while the body is revealed or retracted.
   Canvas {
     id: warningIcon
-    width: Style.space(43)
+    width: Style.space(48)
     height: root.height
     opacity: root.symbolOpacity
     onWidthChanged: requestPaint()
@@ -65,10 +65,10 @@ BorderSurface {
       // Keep the symbol smaller than even a one-line banner and centered as
       // taller, wrapped messages grow around it.
       var apexX = width / 2
-      var apexY = height / 2 - Style.space(15)
+      var apexY = height / 2 - Style.space(17)
       var leftX = Style.space(5)
       var rightX = width - leftX
-      var baseY = height / 2 + Style.space(15)
+      var baseY = height / 2 + Style.space(17)
       ctx.beginPath()
       ctx.moveTo(apexX, apexY)
       ctx.lineTo(rightX, baseY)
@@ -118,7 +118,7 @@ BorderSurface {
   // stroke pulse as a single shape, without an overlapping frame underneath.
   Canvas {
     id: steppedBorder
-    x: warningIcon.width + Style.space(3)
+    x: warningIcon.width + Style.space(7)
     y: Style.space(5)
     z: 1
     width: Style.space(8)
@@ -150,7 +150,7 @@ BorderSurface {
 
   Item {
     id: panelReveal
-    x: warningIcon.width + Style.space(2)
+    x: warningIcon.width + Style.space(6)
     width: Math.max(0, (root.width - x) * root.revealFraction)
     height: root.height
     clip: true

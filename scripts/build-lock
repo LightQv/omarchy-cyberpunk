@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""Render a reviewable Omarchy lock clone without editing packaged sources."""
+
+import argparse
+import hashlib
+import sys
+from pathlib import Path
+
+UPSTREAM = Path("/usr/share/omarchy/shell/plugins/lock/Service.qml")
+OUTPUT = Path(__file__).resolve().parent.parent / "lock-plugin/Service.qml"
+UPSTREAM_VIEW = UPSTREAM.with_name("LockView.qml")
+OUTPUT_VIEW = OUTPUT.with_name("StockLockView.qml")
+# Pin the inspected release; an upstream authentication change needs a diff review.
+STOCK_SHA256 = "3f0a265a09f7957e8f5d74666595d3136ec64899c414426190460f9e2098e701"
+VIEW_SHA256 = "9b174cf3ba8569dede528968be38994491ac73d9ca708f7e9451beeec7b4d066"
+
+
+def once(text: str, old: str, new: str) -> str:
+    if text.count(old) != 1:
+        raise ValueError(f"Omarchy lock contract changed: {old[:72]!r}")
+    return text.replace(old, new, 1)
+
+
+def render(stock: str) -> str:
+    stock = once(stock, '  property string backgroundPath: ""\n',
+                 '  property string backgroundPath: ""\n'
+                 '  property bool captureReady: false\n'
+                 '  readonly property string capturePath: Quickshell.env("XDG_RUNTIME_DIR") + "/lightqv-cyberpunk-lock.png"\n')
+    stock = once(stock, '    resetAuthenticationState()\n    lockRequested = true\n',
+                 '    resetAuthenticationState()\n'
+                 '    captureReady = false\n'
+                 '    if (realScreenCount() === 1 && !captureProc.running) captureProc.running = true\n'
+                 '    lockRequested = true\n')
+    stock = once(stock, '    sessionLock.locked = false\n    logEvent("unlocked")',
+                 '    sessionLock.locked = false\n'
+                 '    captureReady = false\n'
+                 '    if (captureProc.running) captureProc.running = false\n'
+                 '    clearCaptureProc.running = true\n'
+                 '    logEvent("unlocked")')
+    stock = once(stock, '      if (secure) {\n',
+                 '      if (secure) {\n'
+                 '        if (captureProc.running) captureProc.running = false\n')
+    stock = once(stock, '      LockView {\n', '      CyberpunkLockView {\n')
+    stock = once(stock, '    LockView {\n', '    CyberpunkLockView {\n')
+    stock = once(stock, '        backgroundPath: root.backgroundPath\n',
+                 '        backgroundPath: root.captureReady ? root.capturePath : root.backgroundPath\n')
+    stock = once(stock, '        backgroundVersion: root.backgroundVersion\n',
+                 '        backgroundVersion: root.backgroundVersion + (root.captureReady ? 1 : 0)\n')
+    stock = once(stock, '  Process {\n    id: readlinkProc\n',
+                 '''  Process {
+    id: captureProc
+    command: ["bash", Quickshell.env("HOME") + "/.config/omarchy/plugins/lightqv.cyberpunk-lock/capture-lock", root.capturePath]
+    onExited: function(code) { root.captureReady = code === 0 && root.lockRequested }
+  }
+  Process {
+    id: clearCaptureProc
+    command: ["rm", "-f", "--", root.capturePath]
+  }
+  Process {
+    id: readlinkProc
+''')
+    return "// Generated from the pinned installed Omarchy lock by scripts/build-lock.\n" + stock
+
+
+def render_view(view: str) -> str:
+    # Keep the secure stock input/PAM interface. Only adjust the frozen backdrop
+    # and the visual dimensions, position and border of its field.
+    view = once(view, '  readonly property string placeholderText: "Enter Password"\n',
+                '  readonly property string placeholderText: "ENTER PASSWORD"\n')
+    view = once(view, '  property string passwordText: ""\n',
+                '  property string passwordText: ""\n'
+                '  property real signalPulse: 0\n'
+                '  property real signalPhase: 0\n'
+                '  property int signalVariant: 0\n')
+    view = once(view, '  readonly property int fieldHeight: 67\n',
+                '  readonly property int fieldHeight: 54\n'
+                '  readonly property real fieldYOffset: Math.min(112, height * 0.105)\n')
+    view = once(view, '  readonly property int outlineThickness: 3\n',
+                '  readonly property int outlineThickness: 1\n')
+    view = once(view, '  readonly property int fieldFontSize: Math.round(Style.font.heading * 1.125)\n',
+                 '  readonly property int fieldFontSize: Math.round(Style.font.heading * 0.85)\n')
+    view = once(view, '  onPasswordTextChanged: syncPasswordText()\n',
+                 '  onPasswordTextChanged: { syncPasswordText(); maskGlyphs.requestPaint() }\n'
+                 '  onShowPasswordCursorChanged: maskGlyphs.requestPaint()\n')
+    view = once(view, '      blur: 1.0\n      blurMax: 128\n      blurMultiplier: 1.25\n      contrast: -0.08\n',
+                '      blur: 0.22\n      blurMax: 48\n      blurMultiplier: 1.0\n      contrast: -0.02\n')
+    view = once(view, '      contrast: -0.02\n    }\n\n    MouseArea {',
+                 '      contrast: -0.02\n    }\n\n'
+                 '    Rectangle {\n'
+                 '      anchors.fill: parent\n'
+                 '      color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.09)\n'
+                 '    }\n\n'
+                 '    SignalFault {\n'
+                 '      anchors.fill: parent\n'
+                 '      imageSource: wallpaper.source\n'
+                 '      strength: root.signalPulse\n'
+                 '      phase: root.signalPhase\n'
+                 '      variant: root.signalVariant\n'
+                 '      red: Color.lock.borderActive\n'
+                 '      cyan: Color.lock.border\n'
+                 '    }\n\n    MouseArea {')
+    view = once(view, '      anchors.centerIn: parent\n      color: Color.lock.background\n      borderSpec: root.inputBorderSpec\n',
+                '      anchors.centerIn: parent\n'
+                '      anchors.verticalCenterOffset: root.fieldYOffset\n'
+                 '      color: "transparent"\n'
+                 '      borderSpec: Border.none()\n')
+    view = once(view, '      clip: true\n\n      TextInput {\n',
+                '      clip: true\n\n'
+                   '''      Rectangle {
+         id: inputFrame
+         anchors.fill: parent
+         color: Qt.rgba(Color.lock.borderActive.r, Color.lock.borderActive.g,
+                        Color.lock.borderActive.b, 22 / 255)
+         border.color: root.errorState ? Color.lock.borderError : Color.lock.borderActive
+         border.width: 1
+         Rectangle { width: 4; height: parent.height; color: inputFrame.border.color }
+       }
+'''
+                 '      Text {\n'
+                  '        x: 24\n'
+                 '        anchors.verticalCenter: parent.verticalCenter\n'
+                 '        text: ">"\n'
+                 '        color: Color.lock.borderActive\n'
+                 '        font.family: Style.font.family\n'
+                 '        font.pixelSize: 19\n'
+                 '      }\n\n'
+                  '      TextInput {\n')
+    view = once(view, '      radius: Style.cornerRadius\n      clip: true\n',
+                 '      radius: 0\n      clip: true\n')
+    view = once(view, '        color: Color.lock.text\n        selectionColor: Color.lock.selection\n',
+                   '        color: "transparent"\n        selectionColor: Color.lock.selection\n')
+    view = once(view, '        selectedTextColor: Color.lock.text\n',
+                '        selectedTextColor: "transparent"\n')
+    view = once(view, '        horizontalAlignment: TextInput.AlignHCenter\n',
+                '        horizontalAlignment: TextInput.AlignLeft\n')
+    view = once(view, '        cursorVisible: activeFocus && root.showPasswordCursor && text.length > 0\n',
+                 '        cursorVisible: false // The custom masks paint the visible caret.\n')
+    view = once(view, '        onTextChanged: {\n',
+                 '        onCursorPositionChanged: maskGlyphs.requestPaint()\n'
+                 '        onActiveFocusChanged: maskGlyphs.requestPaint()\n\n'
+                 '        onTextChanged: {\n')
+    view = once(view, '        anchors.fill: passwordInput\n',
+                '        anchors.fill: inputField\n'
+                '        anchors.leftMargin: 56\n'
+                '        anchors.rightMargin: 20 + root.fingerprintReserve\n')
+    view = once(view, '        font.italic: !root.authenticatingPassword && root.failureMessage.length > 0\n        horizontalAlignment: Text.AlignHCenter\n',
+                '        font.italic: !root.authenticatingPassword && root.failureMessage.length > 0\n        horizontalAlignment: Text.AlignLeft\n')
+    view = once(view, '      // Fingerprint hint pinned inside the field\'s right edge when a sensor is\n',
+                  '''      // The stock TextInput still owns focus, selection and Password echo mode.
+      // Both the mask count and caret position follow the real input.
+      Canvas {
+        id: maskGlyphs
+         anchors.left: parent.left
+         anchors.leftMargin: 56
+         anchors.verticalCenter: parent.verticalCenter
+         width: parent.width - 80 - root.fingerprintReserve
+        height: parent.height * 0.54
+        visible: root.passwordText.length > 0
+         onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onPaint: {
+          var ctx = getContext("2d")
+          ctx.clearRect(0, 0, width, height)
+          var count = root.passwordText.length
+          if (!count) return
+          var step = Math.min(20, width / count)
+          var glyph = Math.min(14, step * 0.76)
+           for (var i = 0; i < count; i++) {
+             var left = i * step
+            ctx.beginPath()
+            ctx.moveTo(left + 1, 0)
+            ctx.lineTo(left + glyph, 0)
+            ctx.lineTo(left + glyph, height - 5)
+            ctx.lineTo(left + glyph - Math.min(5, glyph * 0.35), height)
+            ctx.lineTo(left + 1, height)
+            ctx.closePath()
+            ctx.fillStyle = "#32ff435b"
+            ctx.fill()
+            ctx.lineWidth = 1.4
+            ctx.strokeStyle = "#ff435b"
+             ctx.stroke()
+           }
+           if (root.showPasswordCursor) {
+             ctx.fillStyle = "#ff6474"
+              ctx.fillRect(Math.min(width - 2, passwordInput.cursorPosition * step + 2), 2, 2, height - 4)
+            }
+         }
+         MouseArea {
+           anchors.fill: parent
+           property int anchorPosition: 0
+           function positionAt(x) {
+             var count = passwordInput.text.length
+             var step = Math.min(20, maskGlyphs.width / count)
+             return Math.max(0, Math.min(count, Math.round((x - 2) / step)))
+           }
+           onPressed: function(mouse) {
+             passwordInput.forceActiveFocus()
+             anchorPosition = positionAt(mouse.x)
+             passwordInput.cursorPosition = anchorPosition
+           }
+           onPositionChanged: function(mouse) {
+             if (pressed) passwordInput.select(anchorPosition, positionAt(mouse.x))
+           }
+         }
+       }
+
+      Rectangle {
+        anchors.bottom: parent.bottom
+        width: parent.width
+        height: 1
+        color: inputFrame.border.color
+        z: 4
+      }
+
+      // Fingerprint hint pinned inside the field's right edge when a sensor is
+''')
+    return "// Pinned Omarchy LockView with a Cyberpunk backdrop scrim; see scripts/build-lock.\n" + view
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--check", action="store_true")
+    group.add_argument("--write", action="store_true")
+    args = parser.parse_args()
+    try:
+        stock = UPSTREAM.read_text()
+        digest = hashlib.sha256(stock.encode()).hexdigest()
+        if digest != STOCK_SHA256:
+            raise ValueError(f"stock lock changed: {digest}; review upstream before rebuilding")
+        view = UPSTREAM_VIEW.read_text()
+        view_digest = hashlib.sha256(view.encode()).hexdigest()
+        if view_digest != VIEW_SHA256:
+            raise ValueError(f"stock lock view changed: {view_digest}; review upstream before rebuilding")
+        outputs = {OUTPUT: render(stock), OUTPUT_VIEW: render_view(view)}
+        if args.check:
+            for path, output in outputs.items():
+                if not path.is_file() or path.read_text() != output:
+                    raise ValueError(f"lock clone is missing or differs from pinned stock: {path}")
+        else:
+            for path, output in outputs.items():
+                path.write_text(output)
+    except (OSError, ValueError) as exc:
+        print(f"Lock build failed: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

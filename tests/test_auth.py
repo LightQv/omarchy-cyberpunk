@@ -12,6 +12,8 @@ from unittest.mock import patch
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+from PySide6.QtCore import QPoint, Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -36,6 +38,28 @@ class AuthTest(unittest.TestCase):
             write.assert_called_once_with(1, b"not-a-real-password\n")
         self.assertEqual(widget.password.text(), "")
         widget.close()
+
+    def test_askpass_mask_cursor_tracks_editing_and_clicks(self):
+        widget = Askpass("Authorization required")
+        widget.show()
+        field = widget.password
+        field.setText("abcd")
+        field.setFocus()
+        field.setCursorPosition(4)
+        QTest.keyClick(field, Qt.Key_Left)
+        self.assertEqual(field.cursorPosition(), 3)
+        QTest.mouseClick(field, Qt.LeftButton, pos=QPoint(98, 27))
+        self.assertEqual(field.cursorPosition(), 2)
+        QTest.keyClick(field, Qt.Key_Backspace)
+        self.assertEqual(field.text(), "acd")
+        self.assertEqual(field.cursorPosition(), 1)
+        self.assertIn("background: rgba(255, 48, 69, 22)", widget.styleSheet())
+        field.clearFocus()
+        widget.hide()
+        self.app.processEvents()
+        widget.close()
+        widget.deleteLater()
+        self.app.processEvents()
 
     def test_bashrc_stanza_round_trip_and_refuses_edited_marker(self):
         original = "# Personal shell settings\nexport TEST_FLAG=1\n"
