@@ -7,6 +7,7 @@ Item {
     property real strength: 0
     property real phase: 0
     property int variant: 0
+    property bool asynchronousImages: true
     property color red: "#ff3045"
     property color cyan: "#53e3d2"
 
@@ -65,7 +66,7 @@ Item {
                 height: fault.height
                 source: fault.imageSource
                 fillMode: Image.PreserveAspectCrop
-                asynchronous: true
+                asynchronous: fault.asynchronousImages
                 cache: true
                 sourceSize.width: fault.width
                 sourceSize.height: fault.height

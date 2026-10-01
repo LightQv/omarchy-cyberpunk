@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Window
-import "../sddm-theme/palette.js" as Palette
+import "PreviewPalette.js" as Palette
 
 // Standalone artwork preview. It never creates WlSessionLock or PAM contexts.
 Window {

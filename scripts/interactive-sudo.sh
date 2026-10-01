@@ -27,7 +27,8 @@ sudo() {
     esac
   done
 
-  local askpass="$HOME/Projects/omarchy-cyberpunk/askpass/cyberpunk-askpass"
+  local askpass
+  askpass=$(realpath -m -- "$(dirname -- "${BASH_SOURCE[0]}")/../askpass/cyberpunk-askpass")
   if [[ ! -x $askpass ]]; then
     command sudo "$@"
     return $?

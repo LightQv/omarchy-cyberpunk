@@ -4,9 +4,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 [[ $# == 0 ]] || die "usage: scripts/install-dev"
 umask 077
+lifecycle_lock
 "$PROJECT/scripts/render-palette" --check || die "render Cyberpunk palette before installation"
-[[ -f $HOME/.local/state/omarchy-cyberpunk-backup/shell.json ]] || die "private baseline backup missing"
-[[ -f $HOME/.local/state/omarchy-cyberpunk-backup/bashrc ]] || die "private Bash configuration backup missing"
 "$PROJECT/scripts/build-lock" --check || die "Cyberpunk lock differs from the pinned Omarchy release"
 omarchy plugin validate "$PLUGIN_SOURCE"
 omarchy plugin validate "$POLKIT_SOURCE"
@@ -46,7 +45,11 @@ omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.lock")
 
 previous=$(current_theme)
 [[ -d /usr/share/omarchy/themes/$previous || -d $HOME/.config/omarchy/themes/$previous ]] || die "previous theme unavailable"
+python -B "$PROJECT/scripts/backup-baseline.py"
 mkdir -p "$STATE_DIR"
+if unoccupied "$SAFE_MODE"; then
+  printf 'lock acceptance pending\n' >"$SAFE_MODE"
+fi
 printf '%s\n' "$previous" >"$STATE_DIR/previous-theme"
 
 rollback() {
@@ -54,34 +57,8 @@ rollback() {
   trap - EXIT
   if (( status != 0 )); then
     printf 'Cyberpunk: install failed; restoring %s.\n' "$previous" >&2
-    if owned_link "$HOOK_LINK" "$HOOK_SOURCE"; then rm -- "$HOOK_LINK"; fi
-    if owned_link "$BOOT_LINK" "$BOOT_SOURCE"; then rm -- "$BOOT_LINK"; fi
-    "$PROJECT/scripts/manage-bashrc.py" remove || true
-    if [[ $(current_theme) == cyberpunk ]]; then omarchy theme set "$previous" || true; fi
-    if owned_link "$PLUGIN_LINK" "$PLUGIN_SOURCE"; then
-      omarchy plugin disable "$PLUGIN_ID" || true
-      omarchy plugin remove "$PLUGIN_ID" --yes || true
-    fi
-    if owned_link "$POLKIT_LINK" "$POLKIT_SOURCE"; then
-      omarchy plugin disable "$POLKIT_ID" || true
-      omarchy plugin enable omarchy.polkit || true
-      omarchy plugin remove "$POLKIT_ID" --yes || true
-    fi
-    if owned_link "$NOTIFY_LINK" "$NOTIFY_SOURCE"; then
-      omarchy plugin disable "$NOTIFY_ID" || true
-      omarchy plugin enable omarchy.notifications || true
-      omarchy plugin remove "$NOTIFY_ID" --yes || true
-    fi
-    if owned_link "$OSD_LINK" "$OSD_SOURCE"; then
-      omarchy plugin disable "$OSD_ID" || true
-      omarchy plugin enable omarchy.osd || true
-      omarchy plugin remove "$OSD_ID" --yes || true
-    fi
-    if owned_link "$LOCK_LINK" "$LOCK_SOURCE" && lock_unlocked; then
-      omarchy plugin enable omarchy.lock || true
-      omarchy plugin remove "$LOCK_ID" --yes || true
-    fi
-    if owned_link "$THEME_LINK" "$THEME_SOURCE"; then rm -- "$THEME_LINK"; fi
+    flock -u 7
+    "$PROJECT/scripts/uninstall-dev" || printf 'Cyberpunk: rollback incomplete; unlock if necessary, then rerun scripts/uninstall-dev.\n' >&2
   fi
   exit "$status"
 }
@@ -107,6 +84,8 @@ omarchy plugin list --json | jq -e --arg id "$LOCK_ID" 'any(.[]; .id == $id and 
 ln -s "$HOOK_SOURCE" "$HOOK_LINK"
 ln -s "$BOOT_SOURCE" "$BOOT_LINK"
 omarchy theme set cyberpunk
+[[ $(current_theme) == cyberpunk ]] || die "theme changed during installation"
 "$PROJECT/scripts/verify" --check
+[[ $(current_theme) == cyberpunk ]] || die "theme changed during final verification"
 trap - EXIT
 printf 'Cyberpunk: installed. Remove with %s/scripts/uninstall-dev\n' "$PROJECT"

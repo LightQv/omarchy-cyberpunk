@@ -5,6 +5,7 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 import "MenuModel.js" as MenuModel
+import "MenuInteraction.js" as MenuInteraction
 
 Item {
   id: root
@@ -42,7 +43,7 @@ Item {
   }
 
   function ping() { return "ok" }
-  function identity() { return "cyberpunk-menu-hud-2" }
+  function identity() { return "cyberpunk-menu-hud-3" }
   function health() {
     return JSON.stringify({
       mode: root.mode,
@@ -50,6 +51,7 @@ Item {
       rows: displayModel.count,
       scannerSlots: scannerModel.count,
       selectedIndex: root.selectedIndex,
+      scannerCenterIndex: root.scannerCenterIndex,
       wheelOffset: root.wheelOffset,
       wheelViewportY: resultList.contentY,
       wheelViewportHeight: resultList.height,
@@ -59,6 +61,8 @@ Item {
       actualCardWidth: card.width,
       cardBodyWidth: cardBody.width,
       listWidth: resultList.width,
+      listX: resultList.mapToItem(null, 0, 0).x,
+      listY: resultList.mapToItem(null, 0, 0).y,
       panelWidth: panel.width,
       opened: root.opened,
       keyFocus: keyCatcher.activeFocus,
@@ -97,7 +101,11 @@ Item {
   property real wheelIntro: 1
   property string filterText: ""
   property int selectedIndex: 0
-  onSelectedIndexChanged: if (wheelActive && opened) rebuildScannerWindow()
+  property bool pointerSelecting: false
+  property bool replacingRows: false
+  property int scannerCenterIndex: 0
+  property var wheelInput: ({ step: 0, remainder: 0, kind: "" })
+  onSelectedIndexChanged: if (wheelActive && opened && !pointerSelecting && !replacingRows) rebuildScannerWindow()
   property real wheelOffset: 0
   property int drilldownStart: -1
   NumberAnimation {
@@ -130,6 +138,7 @@ Item {
   onOpenedChanged: {
     if (!opened) {
       resetWheel()
+      wheelInput = ({ step: 0, remainder: 0, kind: "" })
       deleteConfirmOpen = false
       deleteTarget = null
       scanIntro.stop()
@@ -142,8 +151,7 @@ Item {
   }
   onFilterTextChanged: {
     resetWheel()
-    scannerFlash.stop()
-    scanPulse.opacity = 0
+    wheelInput = ({ step: 0, remainder: 0, kind: "" })
   }
   // Bound to the central [menu] section in shell.toml via Color.qml.
   // Each color already includes its alpha companion (composed in the
@@ -722,6 +730,7 @@ Item {
   // This gives short menu routes centered focus and longer lists a real wrap.
   function rebuildScannerWindow() {
     if (!root.wheelActive) return
+    scannerCenterIndex = selectedIndex
     var count = displayModel.count
     for (var slot = -5; slot <= 5; slot++) {
       var at = root.selectedIndex + slot
@@ -783,7 +792,7 @@ Item {
     if (displayModel.count === 0) return
 
     root.disarmPointer()
-    var roll = root.wheelActive && root.opened && root.cursorActive && !root.reducedMotion && Math.abs(delta) === 1 && displayModel.count > 1
+    var roll = root.wheelActive && root.scannerCenterIndex === root.selectedIndex && root.opened && root.cursorActive && !root.reducedMotion && Math.abs(delta) === 1 && displayModel.count > 1
     if (roll) {
       // The next window is the same rows shifted one slot. Offset its frames
       // back to their previous locations before painting, then roll to zero.
@@ -803,14 +812,14 @@ Item {
 
   function setFilter(nextFilter) {
     panel.freezeCardTop()
+    root.replacingRows = true
     root.filterText = nextFilter
     root.selectedIndex = 0
     root.cursorActive = root.mode !== "input"
     root.disarmPointer()
     if (!root.dmenuActive && root.filterText.trim()) root.loadProvidersForSearch()
     root.rebuildDisplay()
-    if (root.wheelActive && root.opened && root.filterText && displayModel.count > 0 && !root.reducedMotion)
-      scannerFlash.restart()
+    root.replacingRows = false
   }
 
   function setActiveMenu(id, pushHistory, fromPointer) {
@@ -1013,7 +1022,11 @@ Item {
     if (!pointerGate.moved(item, mouse)) return
     if (root.selectedIndex !== index) resetWheel()
     root.cursorActive = true
+    // Hover changes highlighting, not the model's center. Rebinding the row
+    // beneath the pointer recursively generated more hover selection events.
+    root.pointerSelecting = true
     root.selectedIndex = index
+    root.pointerSelecting = false
   }
 
   Process {
@@ -1045,6 +1058,7 @@ Item {
   PointerMoveGate {
     id: pointerGate
     referenceItem: card
+    threshold: Style.space(4)
   }
 
   Connections {
@@ -1210,17 +1224,6 @@ Item {
       Rectangle { width: parent.width; height: 1; y: parent.height * 0.87; color: root.border; opacity: 0.3 }
       Rectangle { width: 2; height: parent.height * 0.74; x: parent.width * (root.mirroredBindings ? 0.28 : 0.72); y: parent.height * 0.13; color: root.border; opacity: 0.2; visible: panel.width > Style.space(920) }
 
-      Repeater {
-        model: 11
-        Rectangle {
-          width: parent.width
-          height: 1
-          y: parent.height * (0.16 + index * 0.067)
-          color: root.foreground
-          opacity: 0.035
-        }
-      }
-
       Column {
         width: Math.min(Style.space(360), parent.width * 0.23)
         x: root.mirroredBindings ? panel.scannerMargin : parent.width * 0.76
@@ -1237,21 +1240,6 @@ Item {
         Text { width: parent.width; text: "TARGET    " + (root.cursorActive ? (root.selectedIndex + 1) : "—"); color: root.selectedText; font.family: root.scannerFont; font.pixelSize: Style.font.bodySmall }
         Text { width: parent.width; text: "SCROLL / TYPE / EXECUTE"; color: root.foreground; opacity: 0.58; font.family: root.scannerFont; font.pixelSize: Style.font.bodySmall; elide: Text.ElideRight }
       }
-    }
-
-    Rectangle {
-      id: scanPulse
-      visible: root.wheelActive && opacity > 0
-      x: root.mirroredBindings ? panel.width - panel.scannerMargin - root.cardWidth : panel.scannerMargin
-      y: panel.height * 0.5
-      width: root.cardWidth
-      height: 2
-      color: root.selectedBorder
-      opacity: 0
-    }
-    SequentialAnimation {
-      id: scannerFlash
-      NumberAnimation { target: scanPulse; property: "opacity"; from: 0.32; to: 0; duration: 220 }
     }
 
     MouseArea {
@@ -1388,7 +1376,7 @@ Item {
                ? (root.item(root.activeMenu) ? (root.item(root.activeMenu).title || root.item(root.activeMenu).label).toUpperCase() : "COMMANDS")
                : (root.dmenuActive ? root.dmenuPrompt.toUpperCase() : (root.filterText || ((root.item(root.activeMenu) ? (root.item(root.activeMenu).title || root.item(root.activeMenu).label) : "Go") + "…")))
              color: root.scannerActive || root.dmenuActive ? root.selectedText : root.foreground
-            opacity: root.scannerActive || root.filterText ? 1 : 0.58
+            opacity: root.scannerActive || root.dmenuActive || root.filterText ? 1 : 0.58
              font.family: root.scannerActive || root.dmenuActive ? root.scannerFont : root.fontFamily
              font.pixelSize: root.scannerActive || root.dmenuActive ? Style.font.display : Style.font.heading
              font.bold: root.scannerActive || root.dmenuActive
@@ -1479,12 +1467,18 @@ Item {
               required property string action
               required property int childCount
 
-              readonly property bool hasCursor: root.cursorActive && row.sourceIndex >= 0 && row.sourceIndex === root.selectedIndex
+              readonly property bool hasCursor: !root.replacingRows && root.cursorActive && row.sourceIndex >= 0 && row.sourceIndex === root.selectedIndex
               readonly property bool isApp: row.kind === "app"
               readonly property bool hasIcon: row.icon.length > 0 || row.isApp
               readonly property bool scannerRow: root.wheelActive && row.sourceIndex >= 0
               readonly property bool mirroredRow: root.mirroredBindings && row.sourceIndex >= 0
               readonly property bool hudRow: row.scannerRow || (root.dmenuActive && row.sourceIndex >= 0)
+              readonly property real edgeOpacity: {
+                if (resultList.contentHeight <= resultList.height) return 1
+                var centreY = row.y + rowFrame.y + row.height / 2 - resultList.contentY
+                var fade = Math.min(Style.space(48), resultList.height / 2)
+                return Math.max(0, Math.min(1, centreY / fade, (resultList.height - centreY) / fade))
+              }
 
                // ListView controls the delegate's x/y. Move its inner frame and
                // pointer target together; the two extra slots buffer the fold.
@@ -1500,7 +1494,7 @@ Item {
                  // rows travel vertically, rather than replacing only text.
                  x: row.scannerRow ? (row.mirroredRow ? row.width - width - Style.space(5) : Style.space(5)) + (row.mirroredRow ? -1 : 1) * Math.round(Math.min(root.wheelCurveDepth, Math.max(0, row.width - width - Style.space(12))) * Math.pow(Math.min(1, Math.abs((row.index - 5 + root.wheelOffset) / 4)), 1.35)) : 0
                  y: row.scannerRow ? root.wheelOffset * (row.height + root.rowSpacing) : 0
-                 opacity: row.scannerRow ? Math.max(0.42, 1 - Math.pow(Math.abs((row.index - 5 + root.wheelOffset) / 4), 2) * 0.58) : 1
+                  opacity: row.edgeOpacity * (row.scannerRow ? Math.max(0.42, 1 - Math.pow(Math.abs((row.index - 5 + root.wheelOffset) / 4), 2) * 0.58) : 1)
                 radius: row.hudRow ? 0 : root.cornerRadius
                 color: row.hudRow ? "transparent" : (row.hasCursor ? root.selectedBackground : "transparent")
                 borderSpec: row.hudRow ? Border.none() : (row.hasCursor ? root.selectedBorderSpec : Border.none())
@@ -1713,10 +1707,6 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 enabled: row.sourceIndex >= 0
-                onEntered: root.selectFromPointer(row.sourceIndex, rowFrame, {
-                  x: mouseArea.mouseX,
-                  y: mouseArea.mouseY
-                })
                 onPositionChanged: function(mouse) {
                   root.selectFromPointer(row.sourceIndex, rowFrame, mouse)
                 }
@@ -1735,48 +1725,17 @@ Item {
               anchors.fill: parent
               acceptedButtons: Qt.NoButton
               onWheel: function(wheel) {
-                if (!root.scannerActive) return
-                root.select(wheel.angleDelta.y > 0 ? -1 : 1)
+                if (!root.wheelActive) return
+                if (!wheel.angleDelta.y && !wheel.pixelDelta.y) return
+                root.wheelInput = MenuInteraction.wheelStep(wheel.angleDelta.y, wheel.pixelDelta.y, root.wheelInput)
+                if (root.wheelInput.step) root.select(root.wheelInput.step)
                 wheel.accepted = true
               }
             }
           }
 
-          // Scroll scrims. The clipped row already marks the fold at rest;
-          // these keep both edges honest once the list has been scrolled,
-          // when content hides above the card top as well as below. Strength
-          // tracks the distance still hidden past each edge rather than
-          // animating on a clock, so a programmatic jump — wrapping from the
-          // last row back to the first — lands with the fade already applied.
-          Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            height: Math.min(Style.space(28), parent.height / 2)
-            visible: opacity > 0
-            opacity: resultList.contentHeight > resultList.height
-              ? Math.max(0, Math.min(1, (resultList.contentY - resultList.originY) / height))
-              : 0
-            gradient: Gradient {
-              GradientStop { position: 0; color: root.background }
-              GradientStop { position: 1; color: Util.alpha(root.background, 0) }
-            }
-          }
-
-          Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: Math.min(Style.space(28), parent.height / 2)
-            visible: opacity > 0
-            opacity: resultList.contentHeight > resultList.height
-              ? Math.max(0, Math.min(1, (resultList.originY + resultList.contentHeight - resultList.height - resultList.contentY) / height))
-              : 0
-            gradient: Gradient {
-              GradientStop { position: 0; color: Util.alpha(root.background, 0) }
-              GradientStop { position: 1; color: root.background }
-            }
-          }
+          // Fade the row artwork itself; never paint bounded background
+          // rectangles over the desktop at the viewport edges.
 
           Column {
             anchors.centerIn: parent

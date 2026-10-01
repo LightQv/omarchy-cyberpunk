@@ -13,7 +13,7 @@ if [[ $mode == --removed ]]; then
   ! notify_referenced || die "notifications clone references remain in shell.json"
   ! osd_referenced || die "OSD clone references remain in shell.json"
   ! lock_referenced || die "lock clone references remain in shell.json"
-  [[ ! -e /etc/sddm.conf.d/zz-lightqv-cyberpunk.conf && ! -e /usr/share/sddm/themes/lightqv-cyberpunk-selector ]] || die "project SDDM selector remains installed"
+  [[ ! -e $LOCK_TRIAL && ! -L $LOCK_TRIAL ]] || die "lock trial remains armed"
   "$PROJECT/scripts/manage-bashrc.py" absent
   [[ $(current_theme) != cyberpunk ]] || die "Cyberpunk theme remains active"
   menu_enabled omarchy.menu || die "stock menu is not enabled"
@@ -32,15 +32,6 @@ exec 9>"$LOCK"
 flock 9
 for attempt in 1 2 3 4; do
   selected=$(current_theme)
-  if [[ -e /var/lib/omarchy-cyberpunk/selected-theme ]]; then
-    desired_marker=omarchy
-    [[ $selected == cyberpunk && ! -e $SAFE_MODE ]] && desired_marker=cyberpunk
-    if [[ $mode == --repair ]]; then
-      if [[ $desired_marker == cyberpunk ]]; then "$PROJECT/scripts/sddm-marker" sync
-      else "$PROJECT/scripts/sddm-marker" stock; fi
-    fi
-    [[ $("$PROJECT/scripts/sddm-marker" status) == "$desired_marker" ]] || die "SDDM marker disagrees with selected theme"
-  fi
   if [[ $selected == cyberpunk ]]; then
     if ! menu_enabled "$PLUGIN_ID"; then
       [[ $mode == --repair ]] || die "Cyberpunk selected but menu clone is inactive"
@@ -106,7 +97,7 @@ for attempt in 1 2 3 4; do
     menu_enabled omarchy.menu || die "stock menu did not restore"
   fi
   desired_lock=omarchy.lock
-  [[ $selected == cyberpunk && ! -e $SAFE_MODE ]] && desired_lock=$LOCK_ID
+  [[ $selected == cyberpunk ]] && lock_allowed && lock_enabled && desired_lock=$LOCK_ID
   if [[ $desired_lock == "$LOCK_ID" ]]; then
     needs_lock_switch=false
     menu_enabled "$LOCK_ID" || needs_lock_switch=true

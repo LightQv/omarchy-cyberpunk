@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pty
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -95,10 +96,14 @@ class AuthTest(unittest.TestCase):
             theme = home / ".local/state/omarchy/current/theme.name"
             theme.parent.mkdir(parents=True)
             theme.write_text("cyberpunk\n")
-            askpass = home / "Projects/omarchy-cyberpunk/askpass/cyberpunk-askpass"
+            checkout = home / "arbitrary checkout with spaces"
+            askpass = checkout / "askpass/cyberpunk-askpass"
             askpass.parent.mkdir(parents=True)
             askpass.write_text("#!/usr/bin/bash\nexit 0\n")
             askpass.chmod(0o700)
+            source = checkout / "scripts/interactive-sudo.sh"
+            source.parent.mkdir()
+            shutil.copyfile(PROJECT / "scripts/interactive-sudo.sh", source)
             bin_dir = home / "bin"
             bin_dir.mkdir()
             fake_sudo = bin_dir / "sudo"
@@ -107,7 +112,7 @@ class AuthTest(unittest.TestCase):
             log = home / "sudo-invocations"
             env = dict(os.environ, HOME=directory, WAYLAND_DISPLAY="wayland-test", TEST_LOG=str(log))
             env["PATH"] = f"{bin_dir}:/usr/bin"
-            script = f"source {shlex.quote(str(PROJECT / 'scripts/interactive-sudo.sh'))}; sudo -v; sudo -n true; sudo -S -v"
+            script = f"source {shlex.quote(str(source))}; sudo -v; sudo -n true; sudo -S -v"
 
             def run():
                 master, slave = pty.openpty()

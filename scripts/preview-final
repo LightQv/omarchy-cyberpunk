@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Make a five-screen offline review set; never invoke an auth service."""
+"""Preview lock, sudo and Polkit without invoking authentication services."""
 
 import os
-import shutil
-import subprocess
 import sys
 import tempfile
 import time
@@ -28,7 +26,24 @@ FPS = 50
 def qt_image(image):
     if image.isNull() or (image.width(), image.height()) != SIZE:
         raise RuntimeError("Offline capture did not produce a 1920x1080 frame")
-    return Image.fromqimage(image).convert("RGB")
+    # Avoid ImageQt's PNG encode/decode round-trip on every video frame.
+    pixels = image.convertToFormat(QImage.Format_RGB888)
+    return Image.frombytes("RGB", SIZE, pixels.bits(), "raw", "RGB", pixels.bytesPerLine())
+
+
+def dialog_phase(seconds):
+    # Reproducible sample of the live slow/fast/medium sequence bag, with pauses.
+    duration = (1.4, .85, 1.1)
+    pauses = (.45, .7, .35)
+    seconds %= sum(duration) + sum(pauses)
+    for span, pause in zip(duration, pauses):
+        if seconds < span:
+            return seconds / span
+        seconds -= span
+        if seconds < pause:
+            return 1
+        seconds -= pause
+    return 1
 
 
 def render_scene(app, polkit, blurred, sharp):
@@ -58,8 +73,8 @@ def render_scene(app, polkit, blurred, sharp):
     still.save(OUTPUT / f"{name}.png")
 
     def frames():
-        for tick in range(90):
-            yield frame(min(1.0, tick / 38))
+        for tick in range(350 if polkit else 90):
+            yield frame(dialog_phase(tick / FPS) if polkit else min(1.0, tick / 38))
 
     try:
         encode_video(frames(), OUTPUT / f"{name}.mp4", FPS)
@@ -81,6 +96,7 @@ def render_sudo(app, sharp):
     widget = OfflineAskpass("Authorization is required")
     widget.resize(*SIZE)
     widget.scene = QImage(str(sharp))
+    widget.install_fault_backdrop(widget.scene)
     if widget.scene.isNull():
         raise RuntimeError("Offline sudo background failed to load")
     widget.variant = 0
@@ -91,9 +107,11 @@ def render_sudo(app, sharp):
     def frame(phase):
         if phase < 1:
             widget.pulse.start()
-            widget.started_at = time.monotonic() - phase * widget.FAULT_DURATION
+            widget.started_at = time.monotonic() - phase * widget.fault_duration
         else:
             widget.pulse.stop()
+        widget.sync_fault_frame()
+        app.processEvents()
         widget.repaint()
         return qt_image(widget.grab().toImage())
 
@@ -101,8 +119,8 @@ def render_sudo(app, sharp):
     still.save(OUTPUT / "sudo.png")
 
     def frames():
-        for tick in range(90):
-            yield frame(min(1.0, tick / 38))
+        for tick in range(350):
+            yield frame(dialog_phase(tick / FPS))
 
     try:
         encode_video(frames(), OUTPUT / "sudo.mp4", FPS)
@@ -118,23 +136,8 @@ def render_sudo(app, sharp):
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    # Boot/login diagnostics never leave the temporary working directory.
     wallpaper = ROOT / "theme/backgrounds/01-lucy.png"
     with tempfile.TemporaryDirectory(dir="/tmp/opencode") as directory:
-        diagnostics = Path(directory) / "diagnostics"
-        for script in ("preview-login-art", "preview-sddm"):
-            subprocess.run([sys.executable, str(ROOT / "scripts" / script), "--mp4",
-                            "--output-dir", str(diagnostics)], check=True)
-        for name, still, clip in (
-            ("boot", "boot-unlock.png", "boot-appearance.mp4"),
-            ("login", "login-current.png", "login-appearance.mp4"),
-        ):
-            with Image.open(diagnostics / still) as image:
-                if image.size != SIZE:
-                    raise RuntimeError(f"Unexpected {name} still resolution: {image.size}")
-                image.convert("RGB").save(OUTPUT / f"{name}.png")
-            shutil.copyfile(diagnostics / clip, OUTPUT / f"{name}.mp4")
-
         sharp = Path(directory) / "sharp.png"
         blurred = Path(directory) / "blurred.png"
         with Image.open(wallpaper) as image:

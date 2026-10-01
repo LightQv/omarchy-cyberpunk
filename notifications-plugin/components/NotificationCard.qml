@@ -46,6 +46,7 @@ BorderSurface {
 
   implicitWidth: Math.max(Style.space(180), Math.min(Style.space(550), availableWidth - Style.gapsOut * 2))
   implicitHeight: Math.max(Style.space(64), messageColumn.implicitHeight + Style.space(26))
+  readonly property int iconPanelGap: Style.space(16)
   radius: 0
   color: "transparent"
   borderSpec: Border.none()
@@ -118,7 +119,7 @@ BorderSurface {
   // stroke pulse as a single shape, without an overlapping frame underneath.
   Canvas {
     id: steppedBorder
-    x: warningIcon.width + Style.space(7)
+    x: warningIcon.width + root.iconPanelGap + Style.space(1)
     y: Style.space(5)
     z: 1
     width: Style.space(8)
@@ -150,7 +151,7 @@ BorderSurface {
 
   Item {
     id: panelReveal
-    x: warningIcon.width + Style.space(6)
+    x: warningIcon.width + root.iconPanelGap
     width: Math.max(0, (root.width - x) * root.revealFraction)
     height: root.height
     clip: true

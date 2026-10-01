@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate native-size offline review assets and visible one-shot motion."""
+"""Validate native-size previews: settling screens versus looping auth dialogs."""
 
 import json
 import subprocess
@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parent.parent / "preview"
-NAMES = ("boot", "login", "lock", "sudo", "polkit")
+NAMES = ("lock", "sudo", "polkit")
 SIZE = (1920, 1080)
 
 
@@ -44,14 +44,22 @@ def main():
         if (stream["width"], stream["height"]) != SIZE or stream["avg_frame_rate"] != "50/1":
             raise RuntimeError(f"{video} is not a 1920x1080 50 FPS clip")
         duration = float(metadata["format"]["duration"])
-        if not 1.4 <= duration <= 3.0:
+        if not 1.4 <= duration <= (8.0 if name in {"sudo", "polkit"} else 3.0):
             raise RuntimeError(f"{video} has unexpected duration {duration:.2f}s")
         moving = difference(image_at(video, 0.12), image_at(video, 0.34))
         resting = difference(image_at(video, 1.10), image_at(video, 1.40))
-        if moving < 0.01 or resting > max(0.15, moving * 0.10):
+        loops = name in {"sudo", "polkit"}
+        if loops:
+            if duration < 6:
+                raise RuntimeError(f"{video}: shuffled dialog cadence needs a longer clip")
+            # A whole sequence can pause/settle at either sample. Inspect several
+            # later intervals instead of mistaking one quiet gap for stopped loops.
+            resting = max(difference(image_at(video, a), image_at(video, b))
+                          for a, b in ((1.9, 2.1), (2.9, 3.2), (5.3, 5.5)))
+        if moving < 0.01 or (loops and resting < 0.01) or (not loops and resting > max(0.15, moving * 0.10)):
             raise RuntimeError(f"{video}: motion {moving:.3f}, settled {resting:.3f}")
         print(f"{name}: {SIZE[0]}x{SIZE[1]}, 50 FPS, {duration:.2f}s, "
-              f"motion {moving:.3f}, settled {resting:.3f}")
+              f"motion {moving:.3f}, {'continued motion' if loops else 'settled'} {resting:.3f}")
 
 
 if __name__ == "__main__":

@@ -72,8 +72,7 @@ Item {
     syncingPasswordText = false
   }
 
-  onPasswordTextChanged: { syncPasswordText(); maskGlyphs.requestPaint() }
-  onShowPasswordCursorChanged: maskGlyphs.requestPaint()
+  onPasswordTextChanged: syncPasswordText()
   onInputEnabledChanged: {
     if (inputEnabled) Qt.callLater(forcePasswordFocus)
   }
@@ -175,9 +174,9 @@ Item {
         anchors.topMargin: inputField.borderTop
         // Reserve the fingerprint icon's width on both sides so the centered
         // dots stay symmetric and never slide under the icon as they grow.
-        anchors.rightMargin: inputField.borderRight + 18 + root.fingerprintReserve
+        anchors.rightMargin: 24 + root.fingerprintReserve
         anchors.bottomMargin: inputField.borderBottom
-        anchors.leftMargin: inputField.borderLeft + 18 + root.fingerprintReserve
+        anchors.leftMargin: 56
         verticalAlignment: TextInput.AlignVCenter
         horizontalAlignment: TextInput.AlignLeft
         activeFocusOnPress: true
@@ -188,20 +187,13 @@ Item {
         passwordCharacter: "\u25CF"
         passwordMaskDelay: 0
         color: "transparent"
-        selectionColor: Color.lock.selection
+        selectionColor: "transparent"
         selectedTextColor: "transparent"
         font.family: Style.font.family
         font.pixelSize: text.length > 0 ? Math.max(1, Math.floor(root.passwordDotFontSize * root.passwordDotScale)) : root.fieldFontSize
         font.letterSpacing: text.length > 0 ? root.passwordDotLetterSpacing * root.passwordDotScale : 0
         cursorVisible: false // The custom masks paint the visible caret.
-        cursorDelegate: Rectangle {
-          width: 2
-          color: Color.lock.text
-          visible: passwordInput.cursorVisible
-        }
-
-        onCursorPositionChanged: maskGlyphs.requestPaint()
-        onActiveFocusChanged: maskGlyphs.requestPaint()
+        cursorDelegate: Item {} // Native focus changes cannot paint a second caret.
 
         onTextChanged: {
           if (!root.syncingPasswordText) root.passwordTextEdited(text)
@@ -229,83 +221,27 @@ Item {
       Text {
         textFormat: Text.PlainText
         anchors.fill: inputField
-        anchors.leftMargin: 56
-        anchors.rightMargin: 20 + root.fingerprintReserve
+        anchors.leftMargin: 56 + root.fingerprintReserve
+        anchors.rightMargin: 56 + root.fingerprintReserve
         text: root.authenticatingPassword ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : root.placeholderText)
         visible: passwordInput.text.length === 0
         color: root.authenticatingPassword ? Color.lock.text : (root.failureMessage.length > 0 ? Color.lock.textError : Color.lock.placeholder)
         font.family: Style.font.family
         font.pixelSize: root.fieldFontSize
         font.italic: !root.authenticatingPassword && root.failureMessage.length > 0
-        horizontalAlignment: Text.AlignLeft
+        horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
       }
 
-      // The stock TextInput still owns focus, selection and Password echo mode.
-      // Both the mask count and caret position follow the real input.
-      Canvas {
-        id: maskGlyphs
-         anchors.left: parent.left
-         anchors.leftMargin: 56
-         anchors.verticalCenter: parent.verticalCenter
-         width: parent.width - 80 - root.fingerprintReserve
-        height: parent.height * 0.54
-        visible: root.passwordText.length > 0
-         onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
-        onPaint: {
-          var ctx = getContext("2d")
-          ctx.clearRect(0, 0, width, height)
-          var count = root.passwordText.length
-          if (!count) return
-          var step = Math.min(20, width / count)
-          var glyph = Math.min(14, step * 0.76)
-           for (var i = 0; i < count; i++) {
-             var left = i * step
-            ctx.beginPath()
-            ctx.moveTo(left + 1, 0)
-            ctx.lineTo(left + glyph, 0)
-            ctx.lineTo(left + glyph, height - 5)
-            ctx.lineTo(left + glyph - Math.min(5, glyph * 0.35), height)
-            ctx.lineTo(left + 1, height)
-            ctx.closePath()
-            ctx.fillStyle = "#32ff435b"
-            ctx.fill()
-            ctx.lineWidth = 1.4
-            ctx.strokeStyle = "#ff435b"
-             ctx.stroke()
-           }
-           if (root.showPasswordCursor) {
-             ctx.fillStyle = "#ff6474"
-              ctx.fillRect(Math.min(width - 2, passwordInput.cursorPosition * step + 2), 2, 2, height - 4)
-            }
-         }
-         MouseArea {
-           anchors.fill: parent
-           property int anchorPosition: 0
-           function positionAt(x) {
-             var count = passwordInput.text.length
-             var step = Math.min(20, maskGlyphs.width / count)
-             return Math.max(0, Math.min(count, Math.round((x - 2) / step)))
-           }
-           onPressed: function(mouse) {
-             passwordInput.forceActiveFocus()
-             anchorPosition = positionAt(mouse.x)
-             passwordInput.cursorPosition = anchorPosition
-           }
-           onPositionChanged: function(mouse) {
-             if (pressed) passwordInput.select(anchorPosition, positionAt(mouse.x))
-           }
-         }
-       }
-
-      Rectangle {
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: 1
-        color: inputFrame.border.color
-        z: 4
+      // Keep native password synchronization, editing and PAM handoff.
+      PasswordSlots {
+        anchors.fill: parent
+        input: passwordInput
+        accent: Color.lock.borderActive
+        selectionColor: Color.lock.selection
+        rightReserve: root.fingerprintReserve
+        caretEnabled: root.showPasswordCursor
       }
 
       // Fingerprint hint pinned inside the field's right edge when a sensor is

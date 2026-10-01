@@ -1,5 +1,5 @@
 import QtQuick
-import "../sddm-theme/palette.js" as Palette
+import "PreviewPalette.js" as Palette
 
 // Offline-only artwork scene. No session lock, Polkit registration or input.
 Item {
@@ -82,12 +82,19 @@ Item {
         }
         Text {
             x: 56
+            width: parent.width - 112
+            horizontalAlignment: Text.AlignHCenter
             anchors.verticalCenter: parent.verticalCenter
             text: "ENTER PASSWORD"
             color: review.polkitMode ? Palette.text : Palette.dim
             opacity: review.polkitMode ? 0.5 : 1
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 18
+        }
+        Rectangle {
+            x: 60; y: parent.height * 0.23 + 2
+            width: 2; height: parent.height * 0.54 - 4
+            color: Palette.red
         }
     }
 }

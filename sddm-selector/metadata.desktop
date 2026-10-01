@@ -1,8 +1,0 @@
-[SddmGreeterTheme]
-Name=Omarchy Cyberpunk selector
-Description=Load Cyberpunk only when the user's theme marker selects it; otherwise load Omarchy
-Author=LightQv
-Type=sddm-theme
-Version=1.0
-QtVersion=6
-MainScript=Main.qml

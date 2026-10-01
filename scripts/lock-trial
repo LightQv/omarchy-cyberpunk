@@ -45,7 +45,7 @@ if [[ $mode == prepare ]]; then
   fi
   printf 'Cyberpunk: lock clone staged but not enabled.\n'
 elif [[ $mode == activate ]]; then
-  [[ ! -e $SAFE_MODE ]] || die "login/lock safe mode is active; refusing custom lock"
+  lock_allowed || die "safe mode blocks custom lock without an explicit isolated lock trial"
   [[ $(current_theme) == cyberpunk ]] || die "Cyberpunk must be active for lock trial"
   owned_link "$LOCK_LINK" "$LOCK_SOURCE" || die "clone path not owned"
   menu_enabled omarchy.lock || die "stock lock must be active before trial"

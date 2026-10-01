@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Persist the only optional screen in this product: the session lock.
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+[[ $# == 1 ]] || die 'usage: scripts/lock-screen {status|enable|disable|trial|restore}'
+mode=$1
+case $mode in status|enable|disable|trial|restore) ;; *) die 'unknown lock-screen action' ;; esac
+if [[ $mode == status ]]; then
+  if lock_enabled; then printf 'lock preference: enabled\n'; else printf 'lock preference: disabled\n'; fi
+  printf 'lock safe mode: %s\n' "$([[ -e $SAFE_MODE ]] && printf on || printf off)"
+  printf 'isolated lock trial: %s\n' "$([[ -e $LOCK_TRIAL ]] && printf armed || printf none)"
+  "$PROJECT/scripts/lock-trial" status
+  exit 0
+fi
+installed || die 'install the desktop integration first'
+lock_unlocked || die 'unlock and wait for PAM readiness before changing lock preferences'
+[[ -d $STATE_DIR && ! -L $STATE_DIR && $(stat -c %u "$STATE_DIR") == "$EUID" ]] || die 'untrusted project state'
+preference_lock="$STATE_DIR/lock-preference.lock"
+if ! unoccupied "$preference_lock"; then
+  [[ -f $preference_lock && ! -L $preference_lock && $(stat -c %u "$preference_lock") == "$EUID" && ! -s $preference_lock ]] || die 'untrusted lock-preference lock'
+fi
+exec 8>"$preference_lock"
+flock 8
+if [[ $mode == trial ]]; then
+  [[ -f $SAFE_MODE && ! -L $SAFE_MODE ]] || die 'keep lock safe mode on for an isolated trial'
+  [[ $(current_theme) == cyberpunk ]] || die 'select Cyberpunk before the lock trial'
+  lock_enabled || die 'enable the lock preference before trial'
+  unoccupied "$LOCK_TRIAL" || die 'lock trial already armed'
+  "$PROJECT/scripts/build-lock" --check
+  umask 077
+  (set -C; printf 'lock\n' >"$LOCK_TRIAL")
+elif [[ $mode == restore ]]; then
+  [[ -f $LOCK_TRIAL && ! -L $LOCK_TRIAL && $(stat -c %u "$LOCK_TRIAL") == "$EUID" && $(<"$LOCK_TRIAL") == lock ]] || die 'no owned lock trial to restore'
+  rm -- "$LOCK_TRIAL"
+else
+  # Validate before replacing a persisted preference; publish atomically.
+  lock_enabled || true
+  tmp=$(mktemp "$STATE_DIR/.lock-preference.XXXXXXXX")
+  trap 'rm -f -- "$tmp"' EXIT
+  if [[ $mode == enable ]]; then printf 'enabled\n' >"$tmp"; else printf 'disabled\n' >"$tmp"; fi
+  mv -fT -- "$tmp" "$LOCK_PREF"
+fi
+if ! "$PROJECT/scripts/verify" --repair; then
+  if [[ $mode == trial && -f $LOCK_TRIAL && ! -L $LOCK_TRIAL ]]; then
+    rm -- "$LOCK_TRIAL"
+    "$PROJECT/scripts/verify" --repair || true
+  fi
+  die 'lock reconciliation failed; inspect scripts/verify --check'
+fi
+printf 'Cyberpunk: lock %s complete.\n' "$mode"

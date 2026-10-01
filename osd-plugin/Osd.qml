@@ -90,6 +90,7 @@ Item {
 
       Text {
         id: glyph
+        visible: !root.longMessage
         x: 0
         y: Style.space(3)
         width: Style.space(34)
@@ -120,19 +121,43 @@ Item {
         elide: Text.ElideRight
       }
       Text {
-        x: root.longMessage ? Style.space(42) : card.width - width - Style.space(8)
+        visible: !root.longMessage
+        x: card.width - width - Style.space(8)
         y: Style.space(9)
-        width: root.longMessage ? card.width - x - Style.space(8) : Style.space(68)
+        width: Style.space(68)
         text: root.message
         textFormat: Text.PlainText
         font.family: "JetBrainsMono Nerd Font"
         font.pixelSize: Style.font.body + 1
         font.bold: true
-        horizontalAlignment: root.longMessage ? Text.AlignLeft : Text.AlignRight
+        horizontalAlignment: Text.AlignRight
         color: root.accent
         style: Text.Outline
         styleColor: Color.background
         elide: Text.ElideRight
+      }
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Style.space(3)
+        spacing: Style.space(8)
+        visible: root.longMessage
+        Text {
+          width: Style.space(34); height: Style.space(29)
+          text: root.icon; textFormat: Text.PlainText
+          color: root.accent; font.family: Style.font.family
+          font.pixelSize: Style.font.iconLarge
+          style: Text.Outline; styleColor: Color.background
+          horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+        }
+        Text {
+          y: Style.space(6)
+          width: Math.min(implicitWidth, Math.max(0, card.width - Style.space(42)))
+          text: root.message; textFormat: Text.PlainText
+          font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Style.font.body + 1
+          font.bold: true; color: root.accent
+          style: Text.Outline; styleColor: Color.background
+          elide: Text.ElideRight
+        }
       }
       Item {
         id: progress

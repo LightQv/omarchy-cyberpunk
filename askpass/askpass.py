@@ -10,12 +10,27 @@ import time
 import tomllib
 from pathlib import Path
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, QUrl
 from PySide6.QtGui import QColor, QCursor, QFont, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QVBoxLayout, QWidget,
 )
+from PySide6.QtQuick import QQuickImageProvider
+from PySide6.QtQuickWidgets import QQuickWidget
+
+
+class FrozenImageProvider(QQuickImageProvider):
+    """Supply the captured still directly to QML without writing screen pixels."""
+
+    def __init__(self, image):
+        super().__init__(QQuickImageProvider.Image)
+        self.image = image.copy()
+
+    def requestImage(self, _id, size, requested_size):
+        size.setWidth(self.image.width())
+        size.setHeight(self.image.height())
+        return self.image
 
 
 def theme_colors() -> dict[str, str]:
@@ -39,56 +54,126 @@ def theme_colors() -> dict[str, str]:
 class PasswordField(QLineEdit):
     """Keep native password editing; draw beveled length-only masks over it."""
 
+    CURSOR_GAP = 8
+
     def __init__(self, red: QColor, muted: QColor) -> None:
         super().__init__()
         self.red, self.muted = red, muted
+        self.first_slot = 0
+        self.drag_anchor = 0
         self.setEchoMode(QLineEdit.EchoMode.Password)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.setFixedHeight(54)
         self.setTextMargins(56, 0, 20, 0)
-        self.textChanged.connect(self.update)
-        self.cursorPositionChanged.connect(self.update)
+        self.textChanged.connect(self.sync_slots)
+        self.cursorPositionChanged.connect(self.sync_slots)
+        self.selectionChanged.connect(self.update)
+
+    @staticmethod
+    def logical_length(text: str) -> int:
+        # Qt's cursor/selection positions use QString (UTF-16) offsets.
+        return len(text.encode("utf-16-le", errors="surrogatepass")) // 2
+
+    def sync_slots(self, *_args) -> None:
+        capacity = max(1, int((self.width() - 84 - self.CURSOR_GAP) // 20))
+        cursor = self.cursorPosition()
+        if cursor < self.first_slot:
+            self.first_slot = cursor
+        elif cursor > self.first_slot + capacity:
+            self.first_slot = cursor - capacity
+        self.first_slot = max(0, min(self.first_slot, max(0, self.logical_length(self.text()) - capacity)))
+        self.update()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.sync_slots()
+
+    def position_at(self, x: float) -> int:
+        local = x - 56
+        gap_start = (self.cursorPosition() - self.first_slot) * 20
+        if gap_start < local < gap_start + self.CURSOR_GAP:
+            return self.cursorPosition()
+        if local >= gap_start + self.CURSOR_GAP:
+            local -= self.CURSOR_GAP
+        return max(0, min(self.logical_length(self.text()),
+                          self.first_slot + math.floor(local / 20 + 0.5)))
 
     def mousePressEvent(self, event) -> None:
         """Place the native edit cursor at the clicked custom mask gap."""
-        super().mousePressEvent(event)
-        if event.button() == Qt.MouseButton.LeftButton and self.text():
-            step = min(20.0, (self.width() - 80) / len(self.text()))
-            position = round((event.position().x() - 58) / step)
-            self.setCursorPosition(max(0, min(len(self.text()), position)))
+        if event.button() != Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
+        self.setFocus(Qt.FocusReason.MouseFocusReason)
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            start = self.selectionStart()
+            end = start + self.logical_length(self.selectedText())
+            self.drag_anchor = end if start == self.cursorPosition() else self.cursorPosition() if start < 0 else start
+            position = self.position_at(event.position().x())
+            self.setSelection(self.drag_anchor, position - self.drag_anchor)
+        else:
+            self.drag_anchor = self.position_at(event.position().x())
+            self.setCursorPosition(self.drag_anchor)
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            position = self.position_at(event.position().x())
+            self.setSelection(self.drag_anchor, position - self.drag_anchor)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.selectAll()
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
 
     def paintEvent(self, event) -> None:
-        super().paintEvent(event)
+        # Paint the field ourselves: native QLineEdit cursor/selection geometry
+        # must not bleed through the custom logical-slot renderer.
         painter = QPainter(self)
+        background = QColor(self.red)
+        background.setAlpha(22)
+        painter.fillRect(self.rect(), background)
+        painter.fillRect(QRectF(0, 0, 4, self.height()), self.red)
+        painter.fillRect(QRectF(0, 0, self.width(), 1), self.red)
+        painter.fillRect(QRectF(0, self.height() - 1, self.width(), 1), self.red)
+        painter.fillRect(QRectF(self.width() - 1, 0, 1, self.height()), self.red)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setFont(QFont("JetBrainsMono Nerd Font", 13))
         painter.setPen(self.red)
         painter.drawText(QRectF(24, 0, 19, self.height()), Qt.AlignmentFlag.AlignVCenter, ">")
-        count = len(self.text())
+        count = self.logical_length(self.text())
         if not count:
             painter.setPen(self.muted)
-            painter.drawText(QRectF(56, 0, self.width() - 76, self.height()),
-                             Qt.AlignmentFlag.AlignVCenter, "ENTER PASSWORD")
-            return
-
-        step = min(20.0, (self.width() - 80) / count)
-        glyph = min(14.0, step * 0.76)
+            painter.drawText(QRectF(56, 0, self.width() - 112, self.height()),
+                              Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter, "ENTER PASSWORD")
         top, height = self.height() * 0.23, self.height() * 0.54
+        capacity = max(1, int((self.width() - 84 - self.CURSOR_GAP) // 20))
+        selection_start = self.selectionStart()
+        selection_end = selection_start + self.logical_length(self.selectedText())
+        painter.setClipRect(QRectF(56, top, self.width() - 80, height))
         fill = QColor(self.red)
         fill.setAlpha(50)
-        painter.setBrush(fill)
-        painter.setPen(QPen(self.red, 1.4))
-        for index in range(count):
-            left = 56 + index * step
-            shape = QPainterPath(QPointF(left + 1, top))
-            shape.lineTo(left + glyph, top)
-            shape.lineTo(left + glyph, top + height - 5)
-            shape.lineTo(left + glyph - min(5, glyph * 0.35), top + height)
-            shape.lineTo(left + 1, top + height)
+        for index in range(min(capacity, count - self.first_slot)):
+            position = self.first_slot + index
+            left = 60 + index * 20 + (self.CURSOR_GAP if position >= self.cursorPosition() else 0)
+            if selection_start <= position < selection_end:
+                painter.fillRect(QRectF(left - 3, top, 20, height), QColor("#5553e3d2"))
+            painter.setBrush(fill)
+            painter.setPen(QPen(self.red, 1.4))
+            shape = QPainterPath(QPointF(left + 1, top + 1))
+            shape.lineTo(left + 13, top + 1)
+            shape.lineTo(left + 13, top + height - 5)
+            shape.lineTo(left + 9, top + height - 1)
+            shape.lineTo(left + 1, top + height - 1)
             shape.closeSubpath()
             painter.drawPath(shape)
-        painter.fillRect(QRectF(min(self.width() - 22, 58 + self.cursorPosition() * step), top + 2,
-                                2, height - 4), self.red)
+        if self.hasFocus() and self.isEnabled() and not self.isReadOnly():
+            painter.fillRect(QRectF(56 + self.CURSOR_GAP / 2 + (self.cursorPosition() - self.first_slot) * 20,
+                                   top + 2, 2, height - 4), self.red)
 
 
 class BeveledButton(QPushButton):
@@ -130,17 +215,7 @@ class Askpass(QWidget):
 
     # A four-beat F/S/S/F motif. Band placement is rotated per invocation.
     FAULT_DURATION = 0.76
-    BEAT_STARTS = (0.0, 0.19, 0.50, 0.83)
-    BEAT_LENGTHS = (0.13, 0.24, 0.26, 0.13)
-    BANDS = (
-        (0.04, 0.17, 0.32, 8, 19, 0), (0.55, 0.24, 0.40, 9, -27, 1),
-        (0.16, 0.38, 0.55, 7, 31, 2), (0.51, 0.49, 0.40, 11, -22, 1),
-        (0.05, 0.67, 0.36, 6, 25, 3), (0.35, 0.76, 0.57, 10, -24, 2),
-        (0.03, 0.87, 0.30, 7, 17, 3), (0.73, 0.82, 0.23, 5, -14, 0),
-        (0.11, 0.27, 34, 34, -22, 0), (0.30, 0.13, 42, 42, 29, 2),
-        (0.06, 0.46, 30, 30, 18, 1), (0.88, 0.69, 28, 28, -26, 3),
-        (0.19, 0.79, 40, 40, 27, 2), (0.69, 0.91, 26, 26, -20, 3),
-    )
+    FAULT_SPEEDS = (.85, 1.1, 1.4)
 
     def __init__(self, prompt: str) -> None:
         super().__init__()
@@ -149,9 +224,14 @@ class Askpass(QWidget):
         self.cyan = QColor(colors["cyan"])
         self.base = QColor(colors["darker_background"])
         self.scene = self._capture_desktop()
-        self.negative = QImage()
+        self.fault_backdrop = None
+        self.background_size = None
         self.variant = random.SystemRandom().randrange(4)
         self.started_at = 0.0
+        self.fault_duration = self.FAULT_DURATION
+        self.fault_pause = 0.25
+        self.speed_bag = []
+        self.last_speed = None
         self.setWindowTitle("Authorization required")
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -217,6 +297,37 @@ class Askpass(QWidget):
         self.pulse = QTimer(self)
         self.pulse.setInterval(16)
         self.pulse.timeout.connect(self.advance_fault)
+        if not self.scene.isNull():
+            self.install_fault_backdrop(self.scene)
+
+    def install_fault_backdrop(self, image):
+        """Render exactly the same frozen-fragment effect as Polkit."""
+        self.fault_backdrop = QQuickWidget(self)
+        self.fault_backdrop.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.fault_backdrop.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.fault_backdrop.setClearColor(Qt.GlobalColor.transparent)
+        self.fault_backdrop.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
+        self.frozen_provider = FrozenImageProvider(image)
+        self.fault_backdrop.engine().addImageProvider("askpass", self.frozen_provider)
+        self.fault_backdrop.setSource(QUrl.fromLocalFile(str(Path(__file__).with_name("FaultBackdrop.qml"))))
+        if self.fault_backdrop.rootObject():
+            self.fault_backdrop.rootObject().setProperty("red", self.red)
+            self.fault_backdrop.rootObject().setProperty("cyan", self.cyan)
+            self.fault_backdrop.rootObject().setProperty("background", self.base)
+        self.fault_backdrop.setGeometry(self.rect())
+        self.fault_backdrop.lower()
+        self.fault_backdrop.show()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.fault_backdrop:
+            self.fault_backdrop.setGeometry(self.rect())
+
+    def sync_fault_frame(self):
+        if self.fault_backdrop and self.fault_backdrop.rootObject():
+            phase = min(1.0, (time.monotonic() - self.started_at) / self.fault_duration) if self.pulse.isActive() else 1.0
+            self.fault_backdrop.rootObject().setProperty("phase", phase)
+            self.fault_backdrop.rootObject().setProperty("variant", self.variant)
 
     @staticmethod
     def _capture_desktop() -> QImage:
@@ -231,21 +342,35 @@ class Askpass(QWidget):
             return QImage()
 
     def advance_fault(self) -> None:
-        """Stop the cosmetic pulse after one four-beat cycle."""
-        if time.monotonic() - self.started_at >= self.FAULT_DURATION:
+        """Repeat cosmetic beats over the same frozen image until hidden."""
+        if not self.isVisible():
             self.pulse.stop()
+        elif time.monotonic() - self.started_at >= self.fault_duration + self.fault_pause:
+            self.start_fault_sequence()
+        self.sync_fault_frame()
         self.update()
+
+    def start_fault_sequence(self) -> None:
+        if not self.speed_bag:
+            self.speed_bag = list(self.FAULT_SPEEDS)
+        choices = [speed for speed in self.speed_bag if speed != self.last_speed]
+        self.fault_duration = random.SystemRandom().choice(choices)
+        self.speed_bag.remove(self.fault_duration)
+        self.last_speed = self.fault_duration
+        self.fault_pause = random.SystemRandom().uniform(0.35, 0.80)
+        self.variant = (self.variant + random.SystemRandom().randrange(1, 4)) % 4
+        self.started_at = time.monotonic()
 
     def paintEvent(self, event) -> None:
         """Render frozen desktop faults underneath the still-live Qt controls."""
         super().paintEvent(event)
         painter = QPainter(self)
         if not self.scene.isNull():
-            if self.scene.size() != self.size() or self.negative.isNull():
-                original = self.scene.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
-                                             Qt.TransformationMode.SmoothTransformation)
-                self.negative = original.copy()
-                self.negative.invertPixels()
+            if self.background_size != self.size():
+                self.background_size = self.size()
+                sharp = self.frozen_provider.image if self.fault_backdrop else self.scene
+                original = sharp.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio,
+                                              Qt.TransformationMode.SmoothTransformation)
                 softened = original.scaled(max(1, self.width() // 12),
                                             max(1, self.height() // 12),
                                             Qt.AspectRatioMode.IgnoreAspectRatio,
@@ -257,43 +382,6 @@ class Askpass(QWidget):
         scrim.setAlpha(170)
         painter.fillRect(self.rect(), scrim)
 
-        elapsed = time.monotonic() - self.started_at
-        if not self.pulse.isActive() or self.scene.isNull():
-            self._paint_header(painter)
-            return
-        phase = elapsed / self.FAULT_DURATION
-        for index, (x, y, width, height, shift, base_beat) in enumerate(self.BANDS):
-            beat = (base_beat + self.variant) % 4
-            local = (phase - self.BEAT_STARTS[beat]) / self.BEAT_LENGTHS[beat]
-            if not 0 < local < 1:
-                continue
-            level = min(1.0, local / 0.18, (1 - local) / 0.28)
-            target = QRectF(self.width() * x, self.height() * y,
-                            width if width >= 1 else self.width() * width, height)
-            source = QRectF(target.translated(shift * level, 0))
-            sample_x = max(0, min(self.scene.width() - 1, round(source.center().x())))
-            sample_y = max(0, min(self.scene.height() - 1, round(source.center().y())))
-            sample = self.scene.pixelColor(sample_x, sample_y)
-            chroma = max(sample.red(), sample.green(), sample.blue()) - min(
-                sample.red(), sample.green(), sample.blue())
-            inverted = (index + self.variant) % 2 and chroma >= 38
-            image = self.negative if inverted else self.scene
-            painter.save()
-            # Keep the negative fully coloured rather than blending it back
-            # toward grey with the backdrop at half opacity.
-            painter.setOpacity(min(1.0, level * 4) if image is self.negative else level * 0.82)
-            painter.drawImage(target, image, source)
-            painter.restore()
-            if not inverted:
-                painter.save()
-                painter.setOpacity(level * 0.22)
-                painter.fillRect(target, self.red)
-                painter.restore()
-            accent = QColor(self.cyan if index % 3 == 1 else self.red)
-            accent.setAlpha(round(level * 130))
-            painter.setPen(QPen(accent, 1))
-            painter.drawLine(QPointF(target.left(), target.top()),
-                             QPointF(target.left() + target.width() * 0.56, target.top()))
         self._paint_header(painter)
 
     def _paint_header(self, painter: QPainter) -> None:
@@ -333,10 +421,14 @@ class Askpass(QWidget):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        self.started_at = time.monotonic()
-        if not self.scene.isNull():
+        self.start_fault_sequence()
+        if not self.scene.isNull() and os.environ.get("OMARCHY_REDUCED_MOTION") != "1":
             self.pulse.start()
-        QTimer.singleShot(0, self.password.setFocus)
+        QTimer.singleShot(0, self, self.password.setFocus)
+
+    def hideEvent(self, event) -> None:
+        self.pulse.stop()
+        super().hideEvent(event)
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
@@ -351,9 +443,11 @@ class Askpass(QWidget):
             self.password.setFocus()
             return
         os.write(sys.stdout.fileno(), secret.encode("utf-8") + b"\n")
+        self.pulse.stop()
         QApplication.instance().exit(0)
 
     def reject(self) -> None:
+        self.pulse.stop()
         self.password.clear()
         QApplication.instance().exit(1)
 

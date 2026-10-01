@@ -1,12 +1,12 @@
 import QtQuick
-import "LoginLayout.js" as LoginLayout
+import "AuthLayout.js" as AuthLayout
 
 // Auth-independent presentation. The real field remains in StockLockView;
 // loginRequested is connected to that view's existing submitPassword signal.
 Item {
     id: hud
-    property real fieldWidth: LoginLayout.fieldWidth
-    property real fieldHeight: LoginLayout.fieldHeight
+    property real fieldWidth: AuthLayout.fieldWidth
+    property real fieldHeight: AuthLayout.fieldHeight
     property real fieldYOffset: Math.min(112, height * 0.105)
     property color red: "#ff3045"
     property color cyan: "#53e3d2"
@@ -56,10 +56,10 @@ Item {
 
     Item {
         id: prompt
-        width: Math.min(LoginLayout.promptWidth, hud.width * 0.80)
-        height: LoginLayout.promptHeight
+        width: Math.min(AuthLayout.promptWidth, hud.width * 0.80)
+        height: AuthLayout.promptHeight
         x: (hud.width - width) / 2
-        y: hud.fieldCenter - hud.fieldHeight / 2 - LoginLayout.fieldY
+        y: hud.fieldCenter - hud.fieldHeight / 2 - AuthLayout.fieldY
 
         Rectangle { x: 0; width: 19; height: 2; color: hud.red; opacity: 0.85 }
         Rectangle { x: 0; width: 2; height: 15; color: hud.red; opacity: 0.85 }
@@ -138,9 +138,9 @@ Item {
         Item {
             id: loginButton
             x: (prompt.width - hud.fieldWidth) / 2
-            y: LoginLayout.buttonY
+            y: AuthLayout.buttonY
             width: hud.fieldWidth
-            height: LoginLayout.buttonHeight
+            height: AuthLayout.buttonHeight
             visible: !hud.fingerprintMode
             activeFocusOnTab: true
             Keys.onReturnPressed: hud.loginRequested()
@@ -190,7 +190,7 @@ Item {
         }
         Text {
             x: (prompt.width - hud.fieldWidth) / 2
-            y: LoginLayout.hintY
+            y: AuthLayout.hintY
             text: hud.fingerprintMode ? "SENSOR ACTIVE  /  ESC ABORT" : (hud.fingerprintAvailable ? "FINGERPRINT AVAILABLE  /  ENTER CONFIRM" : hud.hintLabel)
             textFormat: Text.PlainText
             color: hud.mutedColor

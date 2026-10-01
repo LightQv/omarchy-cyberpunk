@@ -25,7 +25,18 @@ OSD_ID=lightqv.cyberpunk-osd
 LOCK_ID=lightqv.cyberpunk-lock
 STATE_DIR="$PROJECT/.state"
 SAFE_MODE="$STATE_DIR/safe-mode"
+LOCK_PREF="$STATE_DIR/lock-preference"
+LOCK_TRIAL="$STATE_DIR/lock-trial"
 LOCK="${XDG_RUNTIME_DIR:-/tmp}/lightqv-cyberpunk-lifecycle.lock"
+OPERATION_LOCK="$LOCK.operation"
+
+# Separate from reconciliation: theme hooks need the reconciliation lock while
+# an install/removal is in progress. Serialize lifecycle commands without holding
+# that lock across a native theme change.
+lifecycle_lock() {
+  exec 7>"$OPERATION_LOCK"
+  flock -n 7 || die "another install/removal is running"
+}
 
 die() { printf 'Cyberpunk: %s\n' "$*" >&2; exit 1; }
 owned_link() { [[ -L $1 && $(readlink -- "$1") == "$2" ]]; }
@@ -42,6 +53,16 @@ installed() {
     "$PROJECT/scripts/manage-bashrc.py" check
 }
 current_theme() { tr -d '\n' <"$HOME/.local/state/omarchy/current/theme.name"; }
+lock_enabled() {
+  if unoccupied "$LOCK_PREF"; then return 0; fi
+  [[ -f $LOCK_PREF && ! -L $LOCK_PREF && $(stat -c %u "$LOCK_PREF") == "$EUID" ]] || die "untrusted lock preference"
+  case $(<"$LOCK_PREF") in enabled) return 0 ;; disabled) return 1 ;; *) die "invalid lock preference" ;; esac
+}
+lock_allowed() {
+  if [[ ! -e $SAFE_MODE && ! -L $SAFE_MODE ]]; then return 0; fi
+  [[ -f $SAFE_MODE && ! -L $SAFE_MODE ]] || return 1
+  [[ -f $LOCK_TRIAL && ! -L $LOCK_TRIAL && $(stat -c %u -- "$LOCK_TRIAL") == "$EUID" && $(<"$LOCK_TRIAL") == lock ]]
+}
 shell_config() { printf '%s' "$HOME/.config/omarchy/shell.json"; }
 clone_referenced() {
   jq -e --arg id "$PLUGIN_ID" '

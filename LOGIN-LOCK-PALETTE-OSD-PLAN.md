@@ -1,100 +1,216 @@
-# Cyberpunk boot login, session lock, authentication, palette, and OSD
+# Cyberpunk desktop, session lock, sudo and Polkit roadmap
 
-Status: **login/lock safe mode after failed real SDDM trial**. Current working integration targets Omarchy 4.0.4-1. The menu, Polkit, notifications, and OSD clones remain installed. Palette rendering, the OSD first-frame change, and source-only login/lock design refinements exist; the earlier custom lock passed a real password unlock, then stock lock was restored. Stock SDDM is selected and no real custom-greeter login was completed. `.state/safe-mode` prevents theme hooks from re-enabling the custom lock or SDDM marker. Offline previews use the revised project QML; staged system SDDM assets still contain an older layout. The existing screen saver that runs *before* locking is not the password screen and is outside this visual pass.
+## Product decision — October 1, 2026
 
-**Implementation progress (source and offline checks):** a separate Plymouth script/assets, paired SDDM QML/wordmark, denser lock fragments and feathered OSD glow now live in project source. Both boot and SDDM use the lock centre's 451 px prompt, 381×54 field and 381×48 button from `theme/login-layout.json` at the **effective 0.75 scale measured in the 1920×1080 lock screenshot** (field about 286 px wide, x≈817–1102, y≈604–645; prompt top ≈500). The earlier 1.9 scale incorrectly made the form more than twice as large as the lock. The turquoise-neon wordmark is now slightly smaller and closer to the header; its cropped transparent margins keep the glow glyph-shaped without creating a false gap. Both boot and SDDM play a **single ~400–485 ms localized logo-only fracture** when first displayed, then settle permanently. Password retries and the transition to boot progress do not replay it. All three source fields show uppercase `ENTER PASSWORD`; SDDM and Plymouth draw the lock's beveled password masks and caret instead of native dots. After aligning Plymouth's raster text and painting SDDM's bottom edge above its input, both source previews at 1920×1080 show the `>` at y=621–627, the placeholder at y=619–628 and the bottom field stroke at y=643. Plymouth hides the whole prompt after disk unlock and puts the unchanged real boot-progress bar at the former field position. Historical diagnostic comparisons used the older eye-login outer frame and lock-sized form as references; the current clean captures are in root `preview/`. Neither boot nor greeter uses a captured desktop, so neither gets the lock's displacement/inversion **backdrop** glitch; the greeter's brief password-field scan is only focus/error feedback. The OSD's old rectangular bars persisted until an explicit shell restart; first and repeated live volume captures after restart showed the smooth line glow. The installed SDDM copy remains the earlier layout, Plymouth is not staged or selected, and real disk unlock, logout/login and lock fault remain untested. `.state/safe-mode`, stock Plymouth, stock SDDM and stock lock remain selected. The remaining activation/rollback gates below are still required; a mock still or greeter test mode does not prove authentication or initramfs behavior.
+**Boot/Plymouth and SDDM login support are retired from this product.** Omarchy
+manages them independently of desktop theming. The product includes desktop
+palette/wallpapers, menu, notifications, OSD, session lock, sudo and Polkit.
+Keep native authentication, Omarchy picker integration and reversible user-owned
+plugin changes. There is no three-screen preference matrix, custom UKI build,
+privileged background boot reconciler or custom greeter selector in active source.
 
-**Latest visual refinement:** keep the compact boot/logout field at its current 0.75 scale and the older eye-login's outer framing. Replace the stepped input with the simpler sudo rectangle on lock, boot, and logout: 1 px border, 4 px left accent, and the same faint red fill as the submit button. Apply the matching fill to sudo and Polkit too, preserving `>` and the beveled masks. Lock and SDDM paint the red caret at the real TextInput cursor index, including keyboard edits and clicks between masks; Plymouth exposes only masked-bullet count, so its indicator remains at the end. Every boot/logout logo beat has a couple of short detached sparks extending further past the lettering without touching the image boundary. The warning icon remains slightly larger and further from the toast panel. Regenerate ignored MP4s for review; keep safe mode and stock selections.
+The former implementation and chronological plan/README are preserved outside
+the checkout in `~/Projects/omarchy-cyberpunk-archives/boot-login-retired-2026-10-01/`.
+This is a local historical snapshot, not dormant product functionality.
 
-**Final offline review:** all detached boot/logout logo sparks are horizontal, including the three formerly diagonal shards. `python scripts/preview-final` generates exactly five 1920×1080 clean PNGs and five 50 FPS one-shot glitch MP4s for boot, logout login, lock, sudo, and Polkit in ignored root `preview/`; temporary diagnostics never enter that folder. `python scripts/verify-final-previews` checks the exact file set, dimensions, frame rate, one-shot motion, and settled state. Lock/Polkit review QML cannot register a secure surface or an auth agent, and sudo review disables submission. This does not satisfy the separate real-authentication gates.
+## Current authoritative checkpoint
 
-## Intended experience and boundaries
-
-| Surface | Cyberpunk appearance | Backdrop and authentication |
+| Area | Accepted/proven | Remaining |
 | --- | --- | --- |
-| Boot disk unlock (Plymouth) | Match the existing login framing, with fully turquoise neon **visible lettering twice as wide as the 451 px scanner/prompt** above the same lock-centre layout used by SDDM. Use the vertically centred uppercase placeholder and custom beveled masks/caret; the visual `LOG IN` label has an Enter hint. On acceptance, replace the whole prompt with the existing-sized volume-style boot-progress bar **at the former field position**, keeping logo/frame fixed. | Plymouth, not SDDM, owns the boot LUKS prompt and actual boot progress. Its prompt is keyboard-only; a drawn button must not masquerade as a clickable control. Preserve disk-unlock semantics and the existing progress source. |
-| After-logout greeter (SDDM) | **Keep the existing login's backdrop, edge rails, header and footer**; change only the centre. Use the same twice-prompt-width turquoise neon logo above a lock-style scanner/prompt, vertically centred uppercase placeholder, custom beveled masks/caret over the genuine password input, **functional** cut-corner `LOG IN` button, user/session controls, and a volume-style auth activity bar. | SDDM still selects the user/session and calls `sddm.login(user, password, session)`; it has no real completion percentage or live desktop. Show auth activity on submission, complete on reported success if the greeter remains visible, reset/retry on failure. Never imply the animation measures boot or login progress. |
-| Manual/idle session lock | CyberArch's early lock-video presentation guides the centered prompt. Brief red-toned displacements and localized true colour-negative strips/squares (red pixels can turn cyan) offset parts of the frozen backdrop, then resolve to quiet. Add modest density, not a full-screen static/noise layer. | Preserve Omarchy's Quickshell `WlSessionLock`, PAM/password, fingerprint, blank/wake, and recovery flows. Show a **blurred static capture** of the desktop taken just before locking, inside an opaque secure lock surface. Fall back to the current blurred wallpaper. |
-| Graphical Polkit and interactive terminal sudo | Match the lock's prompt, masked shapes, cut-corner **SUBMIT** action, and fast/slow/slow/fast frozen-backdrop fault rhythm. Use a privileged-access header instead of the lock clock. | Keep the Polkit clone's authentication flow and the separate PySide6 sudo askpass's stdout-only password handoff. Capture the desktop privately before displaying each overlay; fall back to the current wallpaper when capture fails. |
-| Volume OSD | The small, borderless turquoise glyph/percentage and **line-shaped** glowing progress fill remain; mute stays red. | Keep Omarchy's OSD IPC and non-volume status messages. Remove the rectangular tinted fill visible on **every** opening, as well as the original first-visible-frame artifact. |
+| Desktop/menu | Native caller select/input return/cancel/detail delivery, back and real Apps launch pass. Wrap/rapid-empty search exercised in actual QML. Extra Qt scales 1.5/2 and reduced motion render/focus checks pass. Earlier mouse/heading/fade acceptance retained. | Physical trackpad not attached; actual extra-output/compositor-scale acceptance not established by Qt scaling tests. |
+| Notifications/OSD | Actual notification QML delivery, dismissal/history replay, DND and default actions pass in private sessions at normal/reduced motion and Qt scale 1.5. Repeated OSD transitions and auto-hide pass on the live desktop. | Broader hardware-specific visual acceptance; private-session tests do not replace every native caller sample. |
+| Sudo/Polkit | Real auth/retry/cancel passed. Sudo capture-failure fallback and native off-theme terminal routing accepted live. Correct masks/caret/placeholder presentation accepted. | Fingerprint unavailable; installed PAM did not request a visible response. Further auth-scale/special-response acceptance needs a supporting setup. |
+| Session lock | Manual/repeated/deferred unlock, live controlled-screensaver-class wallpaper fallback and native idle/DPMS blank/wake passed, including first-key feedback. Capture guards pass. Stock restored. | Suspend refocus click still reproduced in both stock/custom. Native screensaver animation startup and extra-output/scale cases remain unaccepted. |
+| Runtime policy/lifecycle | Normal and missing-link native uninstall/reinstall cycles pass with unrelated settings, modes, baseline and safe mode preserved. Ten isolated transaction tests cover interruption, conflicts, concurrency and clean first-install. | New-machine/second-user end-to-end installation and broader race/hardware cases remain release qualifications. |
+| Retired work | Installed-system cleanup and active-checkout cleanup complete. Experimental implementation, removal helper and tests are in the external archive. | None; boot/login is outside product scope. |
 
-No project-owned visual is persistent on the unlocked desktop. Use the user's images and [CyberArch's `lucy_lock.mp4`](https://github.com/ARCANGEL0/CyberArch-Shell/blob/master/assets/img/lucy_lock.mp4) as **references**, not as redistributable assets or authentication code. The project's personal-use wallpapers remain Git-ignored. Generate decorative gradients, glyph treatments, and HUD geometry locally.
+### Retirement completed
 
-## Existing platform facts that shape the design
+Owned boot worker/watcher, Plymouth assets, SDDM override/themes and shared root
+state are removed; stock Plymouth remains `omarchy`. Native login/autologin/PAM
+were preserved. After the user's stock reboot, residual cached SDDM assets were
+removed and absence verified. The removal-only helper and tests are now archived,
+obsolete system guards removed, and stale bytecode caches cleared. Active hooks,
+lock policy, palette and three auth previews have no dependency on archived work.
+Detailed historical findings and migration code live in the external archive.
 
-- `/etc/systemd/system/display-manager.service` runs SDDM 0.21.0; `/etc/sddm.conf.d/99-omarchy-login.conf` selects `Current=omarchy`. Its packaged theme is `/usr/share/sddm/themes/omarchy/Main.qml`, which calls `sddm.login(...)`. The Wayland greeter runs as user `sddm` under its own compositor; it cannot show the not-yet-started user's desktop. `sddm-greeter-qt6 --test-mode --theme <path>` is available for preview, not a substitute for a real authentication test.
-- `/etc/sddm.conf.d/autologin.conf` currently selects `User=lightqv`. This boot's logs show SDDM autologged in; the password greeter appeared after a session ended. **Confirmed:** retain Omarchy's autologin and session behavior. The custom greeter appears only when Omarchy presents a greeter.
-- The password-and-logo screen seen on **boot** is the separate Omarchy Plymouth theme at `/usr/share/plymouth/themes/omarchy/omarchy.script` (source in `/usr/share/omarchy/default/plymouth/`). Its `display_password_callback` draws the LUKS password prompt; `display_normal_callback` hides it and starts the progress bar after disk unlock; `progress_callback` advances from fake toward actual boot progress. `/etc/plymouth/plymouthd.conf` currently selects `Theme=omarchy`. The installed stock SDDM theme has a logo and password field but **no progress bar**. Do not conflate these two authentication events or attach a fake boot percentage to SDDM.
-- The installed stock Plymouth and SDDM themes each contain an Omarchy `logo.png` wordmark. Keep the wordmark shape, but recolour the letters **fully turquoise** with a visibly neon, glyph-shaped turquoise bloom rather than a rectangle. Render matching local PNGs so early boot and SDDM appear coherent. The older red/cyan logo and eye icon were superseded by this direction.
-- The active password lock is `omarchy.lock` (`/usr/share/omarchy/shell/plugins/lock/{Service.qml,LockView.qml}`). It already draws the theme wallpaper under a blur and consumes `Color.lock.*`. It is a keep-loaded authentication service; unloading a live `WlSessionLock` can strand the compositor lock. A version-pinned Cyberpunk clone is staged but disabled by safe mode.
-- The first real logout trial failed before greeter QML or password authentication: the selector's metadata lacked Omarchy's `QtVersion=6`, so SDDM launched `/usr/bin/sddm-greeter` (Qt 5), which immediately failed on missing `libQt5Quick.so.5`. Source and staged metadata now specify Qt 6. Hyprland also dumped core during session/compositor teardown. Stock SDDM selection and stock lock are restored; do not repeat live login tests without a separate decision and a recovery method tested on the actual greeter path.
-- The pre-lock screensaver is a separate terminal/`ttfx` program. The user's `shell.json` currently has `idle.screensaver=150` seconds and `idle.lock=300` seconds. Keep this timing and screensaver unchanged; an idle-triggered lock may otherwise capture the screensaver instead of the desktop.
-- `theme/colors.toml` supplies Omarchy's fundamental palette and derived ANSI colors. The shipped `theme/shell.toml` overrides Omarchy's generated shell template and repeats literal turquoise/red variants. `askpass/askpass.py` and some QML decoration also contain literals. `Color.menu.*`, `Color.polkit.*`, `Color.lock.*`, and `Color.notifications.*` already give most clones reactive surface roles.
-- Existing theme-set/post-boot hooks call `scripts/verify --repair`. Install, uninstall, and verify currently own four clones and user-theme symlinks. Theme changes may restart OpenCode; lifecycle trials must be launched as detached one-shot user jobs.
+Retain safe mode only for current session-lock acceptance. Use
+`scripts/lock-screen {status|enable|disable|trial|restore}`; no three-screen matrix
+or boot/greeter lifecycle remains. Do not use compositor Lua probes for live review:
+a previous probe likely triggered Hyprland watchdog recovery.
 
-## Phase 0 — Baselines and the SDDM switching feasibility gate
+## Remaining ordered product work
 
-1. Record the selected theme, SDDM `Current`, current autologin settings, plugin references, existing `shell.json`, and exact ownership of proposed paths. Do not rewrite unrelated configuration; preserve any later user edits. Confirm no collision with another SDDM theme or lock clone.
-2. Prototype an **independent** SDDM theme from project source (new, owned theme directory; no edits to the packaged `omarchy` theme). Test QtQuick imports, assets, focus, and a stock-greeter fallback with `sddm-greeter-qt6 --test-mode --theme <path>`.
-3. Prove how SDDM picks the view on its **next greeter start**. Prefer a one-time, project-owned greeter selector with a non-secret, owner-controlled, SDDM-readable theme marker: user theme hooks update only that marker, Cyberpunk loads the project login QML, and every other state loads the recorded SDDM theme. Test that the real SDDM greeter can read the marker and load the original theme with its assets/context. A cosmetic marker must never grant authentication privileges. If SDDM QML cannot safely select another theme this way, evaluate a narrowly scoped system-side theme switch and its actual reload behavior **before** adopting it; do not assume a new drop-in is picked up by an already-running daemon.
-4. One-time system-side installation may be necessary for an SDDM-readable project theme, marker directory, and a dedicated `/etc/sddm.conf.d/` override. Install only new, ownership-checked paths and remove them in reverse order. No files under `/usr/share/omarchy/`, stock SDDM theme files, PAM definitions, or sudoers are edited. Record precisely how the previously selected SDDM theme is restored.
+### Verification of the reduced scope
 
-**Gate:** Do not re-enable boot-login switching until the installed theme metadata and the **exact greeter binary launched by SDDM** are verified, a real next-greeter stock fallback succeeds, and recovery is established. Test mode with an explicitly chosen Qt 6 binary did not exercise SDDM's metadata-based binary selection. Do not override autologin or promise a boot password prompt when Omarchy autologs in.
+The retained suite has **26 passing tests**: sudo transport/editing/presentation,
+shared lock/Polkit input and rhythm, palette propagation, wheel accumulation,
+lock-only policy, screensaver capture refusal, failed-capture cleanup and private
+capture publication, plus ten lifecycle transaction/first-install tests.
+Retirement-only tests are preserved with their archived helper.
+All five plugin manifests, Bash syntax, palette and pinned-lock checks,
+`scripts/verify --check`, three-screen preview motion contracts, and
+`git diff --check` pass. Current manual/repeated/deferred lock acceptance and the
+normal and partial native uninstall/reinstall cycles passed. Extra native-QML
+regressions are recorded below separately from isolated CLI simulator coverage.
 
-## Phase 1 — Centralize and propagate Cyberpunk colors
+### 1. Finish input geometry polish
 
-1. Make `theme/colors.toml` the authoring source for background, red accent, cyan/neon cyan, bright highlights, muted surfaces, and derived variants. Specify the desired relationships (e.g. brighter text, dimmer inactive stroke, translucent scrim) in a small project-owned palette/render recipe.
-2. Reproducibly render the **Cyberpunk** `theme/shell.toml` from that palette while retaining its surface-specific alpha, sizing, and border rules. Omarchy skips its stock shell template when a theme supplies `shell.toml`, so changing `cyan` alone will not otherwise retint the existing literal menu/controls/tooltip/lock values. Provide a `--check` mode to detect stale generated output before install or theme reapplication.
-3. Bind menu, OSD, notification, Polkit, and new lock visual colors to `Color.*` roles where possible; replace hard-coded QML fill/glow colors intended to track the palette. Have the graphical sudo askpass resolve the active Cyberpunk palette at launch instead of embedding `RED`, `CYAN`, and unrelated fixed dark shades. Generate an SDDM-readable color export at the same time; the `sddm` user cannot traverse `/home/lightqv` (mode 0700) to read the user's theme directly.
-4. A one-place turquoise edit followed by the documented render/reapply step must update terminal/editor colors, shell surfaces, the four existing clones, sudo/Polkit, lock, and SDDM, while leaving other themes and the user's `~/.config/omarchy/shell.toml` overrides alone. Check dark/bright cyan roles and Hyprland's directional border separately; they need intentional mappings, not accidental replacement with the red `accent`.
+- [x] Center `ENTER PASSWORD` in the **whole bordered field** on lock/sudo/Polkit.
+  Symmetric 56 px margins (plus symmetric fingerprint reserve on lock) center the
+  placeholder while reserving space for `>`. Native input, masks/caret/hit-testing
+   retain their accepted geometry. User accepted current lock, sudo and Polkit
+   centering in real authentication dialogs.
+- [ ] Keep the 4 px left/1 px other border recipe and translucent fills consistent.
+  Check physical-pixel alignment at supported scales.
+- [ ] Verify Home/End, arrows, insertion/deletion, selection replacement/drag,
+  overflow and empty-field single red caret. Polkit visible responses retain native
+  text cursor geometry; masked native cursor delegates remain empty.
+- [x] Refresh and validate three retained offline previews after centering. Do not
+  restore boot/greeter artifacts to `preview/`.
 
-## Phase 2 — Restore a line-shaped volume OSD glow
+### 2. Complete desktop and auth regressions
 
-1. Capture the **first** volume OSD after a fresh shell start, then repeat volume updates at the same screen scale. The original `Canvas` glow was replaced with two semi-transparent `Rectangle` fills (about 15 px and 8 px tall) to address a suspected first-paint/resize race. Their flat bounding edges are now visible on **every** opening. Confirm that rendered cause with captures before changing it again.
-2. Replace those broad uniform fills with a feathered **line-shaped** glow whose alpha falls to zero away from the thin core, clipped to the actual filled length; retain the subtle full track and white endpoint. A gradient or first-frame-safe renderer is fine, but neither its rectangular texture bounds nor a backing box should be perceptible. Establish geometry and the initial fill before showing the layer; animate only subsequent updates. Keep the no-box silhouette, turquoise active fill/red mute, click-through input mask, and current bottom spacing.
-3. Test first and repeated openings, rapid value changes, empty/zero/full values, mute/unmute, brightness, microphone, media/non-progress messages, and output scales. Compare pixel captures for absence of a rectangular fill **at every value**, including partially filled bars; keep OSD IPC and duration unchanged.
+- [x] Native menu select/input return/cancel and stable label/detail delivery,
+  submenu back, real Apps launch, repeated OSD and auto-hide. The Apps probe was a
+  temporary desktop entry launching a self-expiring, separately identified terminal;
+  its entry/window were removed afterward. No arbitrary real application was closed.
+- [x] Menu wrap and repeated empty/nonmatching search exercised in the actual QML
+  instance; root/System/Apps render and focus at Qt scales 1.5/2 and reduced motion.
+  These are logical Qt-scaling checks, not physical monitor-scale acceptance.
+  No physical trackpad is attached in the current Hyprland device list; angle/pixel
+  accumulation remains covered by the retained test. Actual wheel/hover acceptance
+  was already recorded in the earlier supervised root/Keybindings review.
+- [x] Actual notification QML: delivery, wrapped message, dismissal, history replay,
+  DND suppression and default action receipt in private D-Bus/HOME sessions.
+  Normal/reduced-motion/1.5 Qt-scale runs all passed. Production DND/history were
+  never cleared or substituted. Private portal/accessibility activation left a stale
+  AT-SPI socket; its native user service was restarted and connectivity verified.
+- [x] Live OSD repeated volume → volume → mute → brightness → media/action messages
+  and timer auto-hide. Payloads are IPC samples, not real volume/power changes.
+  A subsequent microphone payload also opened and auto-hid normally.
+- [x] Sudo native cancellation (exit 1, no accepted credential), wrong/correct auth,
+  forced-grim-failure readable fallback with masks/caret/cancel, and off-theme native
+  terminal routing (exit 0). Off-theme branch used an isolated HOME/theme marker in
+  a real terminal, preserving the desktop theme. Retained PTY tests cover scripted
+  and explicit noninteractive/stdin routing and a relocated checkout with spaces.
+- [x] Polkit wrong-password → correct-password retry (exit 0) and Escape cancellation
+  (exit 126) accepted by the user through the native agent. Fingerprint is not
+  configured, and these installed PAM requests do not expose visible responses;
+  those flows are not falsely marked live-passed. Capture-failure/off-theme visual
+  variants beyond earlier native restoration evidence remain additional cases.
+- [x] Reduced-motion and hide/accept/cancel timer contracts covered by retained auth
+  tests and actual menu/notification reduced-motion instances.
+  Sudo/Polkit shuffle 0.85/1.10/1.40-second sequences with 350–800 ms pauses;
+  lock's effect remains brief and settling.
 
-## Phase 3 — Design paired Plymouth boot and SDDM logout views
+### 3. Current session-lock acceptance
 
-1. Draw the unchanged **Omarchy wordmark shape** with fully turquoise lettering and a glyph-shaped neon bloom using palette-derived colours. Use matching transparent raster assets for Plymouth and SDDM; size the **visible lettering**, excluding transparent PNG margins, to roughly 1.65–1.8× the widest scanner/prompt at equal scale, with a visibly tighter gap above the scanner. Keep the existing login's burgundy backdrop, edge rails, header and footer; change its centre only. Mirror that framing at boot within Plymouth's renderer. Verify no glowing rectangle surrounds the wordmark. Keep source assets available to `sddm` and early boot; never load from the private user home at boot.
-2. Use `theme/login-layout.json` for the lock's 451 px prompt, field at y=138 (381×54), button at y=208 (381×48) and hint at y=268. Generate layout JS for both QML consumers and matching Plymouth raster geometry; centre every field/button at the same x and **render the whole logo+prompt unit at 0.75 scale on a 1920×1080 screen**, matching the effective size of the earlier lock reference. Preserve lock scanner text, edge accent, mask treatment and cut-corner `LOG IN` outline. SDDM's real password `TextInput`, functional button, focus, user/session choice, failure/retry, and `sddm.login(user, password, session)` remain authoritative. Plymouth retains its own password callback and bullets; render `LOG IN` as a **label with an Enter hint**, not a fake clickable action. Compare fresh source renders at the same output resolution against the original eye login's **outer frame** and the actual lock capture's **center size and position**.
-3. Keep Plymouth's stock behaviour: password accepted → **hide the whole lock-style prompt** → a proportioned volume-inspired progress bar appears **centred where the password field was**, while the frame and logo stay fixed. Its existing fake-to-real boot progression must never move backwards. Preserve retry/prompt callbacks and do not fabricate a completion signal. SDDM has no progress fraction: show a visually matching bar as **indeterminate auth activity** after submit, resolve it on `onLoginSucceeded` only if still visible, and stop/reset it on `onLoginFailed` before allowing retry. Avoid a fake percentage or delaying SDDM/session startup to make an animation finish.
-4. A brief red horizontal **field scan** can acknowledge greeter appearance or error and settle to quiet idle. Separately play a **one-shot logo-only fracture at initial appearance** on both SDDM and Plymouth. Use the same seven palette-derived raster frames on both screens: short displacement fragments across varying glyph groups, mixed direction, unequal holds (3/2/4/2/4/3/6 ticks at 50 FPS), and short local electrical edges—never a wordmark-wide scan line. Return to the unchanged clean logo at tick 24 (~480 ms), without looping, input obstruction or replay after disk unlock/retry. No displacement/inversion **backdrop** fault plays on Plymouth or SDDM because neither has a captured desktop. Test settled and opening frames, password masks, full input border and vertically centred glyphs at different resolutions, including the stock-theme fallback. Preview SDDM with Qt 6 test mode, and generate local full-HD MP4 and close-up review clips with `python scripts/preview-login-art --mp4` and `python scripts/preview-sddm --mp4` without testing an actual LUKS password in a mock. Those ignored MP4 files are for inspection only, not Plymouth runtime media. Keep `.state/safe-mode` and stock login/lock selections until reviewed.
-5. Stage a **separate, project-owned Plymouth theme** rather than editing `/usr/share/omarchy/` or stock `/usr/share/plymouth/themes/omarchy/`. Before any boot activation, identify how this machine's Plymouth theme and initramfs are selected/built, supply an ownership-checked stock restore path, and verify the actual boot artefact contains the intended files. SDDM remains separately staged with its existing ownership/fallback guards. Only after offline review and a recovery decision should real boot/login trials be considered; preserve Omarchy autologin, encryption, PAM, and the recorded stock greeter.
+- [x] While Cyberpunk is selected and stock lock is unlocked/PAM-ready:
 
-## Phase 4 — Theme-scoped CyberArch-inspired lock, sudo, and Polkit
+  ```sh
+  scripts/build-lock --check
+  scripts/lock-screen trial
+  ```
 
-1. Create a versioned `omarchy.lock` clone with `Service.qml` and `LockView.qml` starting from the installed release. Redesign the **view**, not the `WlSessionLock`/PAM/password/fingerprint logic. Keep multi-output lock surfaces, failure handling, keyboard focus, background fallback, display blank/wake, and stranded-lock recovery.
-2. On lock request, attempt a bounded capture of the current desktop **before** the secure session-lock surface takes over. Blur/dim the still image inside the lock surface; briefly displace staggered narrow bands and small squares across that same frozen image, leaving the password field clear. The current ~760 ms fast/slow/slow/fast rhythm and mix of red-toned and localized **true** colour-negative pixels remain. Add only a few staggered micro-strips/small squares (roughly 4–6 extra fragments, spread across beats and variants) to make the fault more prominent without a static-noise field, simultaneous full-screen wash, grey inversion blend, or overlap with input/button controls. Compare multiple rhythm variants in motion, not just one held frame. Never depend on a transparent secure surface revealing live unlocked windows. Do not delay locking indefinitely for capture; if idle's screensaver is visible, capture fails, or a monitor changes, use the current themed wallpaper instead. Keep captures private in runtime storage, isolated per output, and clear them at unlock/exit.
-3. Reuse the lock's palette, prompt geometry, and updated fragment distribution/timing for the Polkit clone and `askpass/askpass.py`. Take a bounded private desktop capture before presenting the overlay, blur/dim it and glitch only selected frozen strips/squares, then delete the capture after the flow. Keep the user's compositor config unchanged. Preserve password-to-stdout-only sudo handling, Polkit fingerprint/visible-response modes, and ordinary off-theme Bash `sudo` dispatch.
-4. Enable/disable a lock clone **only while unlocked**. If a theme switch arrives during an active secure lock, record the pending transition and reconcile it after unlock. The lock must never be destroyed mid-session-lock, nor require PAM/sudoers changes to style it. Compare behavior to the current stock lock whenever Omarchy upgrades.
+- [x] Supervised manual lock: user confirmed first-key input, correct/wrong
+  password/retry, centered placeholder, mask/caret editing and backdrop/effect.
+  Lock activation and stock restoration both verified PAM-ready/unlocked state.
+- [x] Live fallback guard: a controlled `org.omarchy.screensaver` terminal existed
+  when lock was requested through native lock IPC. The lock became secure; neither
+  final capture nor partial file was published. User accepted wallpaper fallback,
+  first-key masks and normal unlock. This does not validate the native screensaver
+  animation launcher, whose cursor code was deliberately not rerun.
+- [x] Native idle lock with temporary 5-second timeout; actual DPMS off/on verified
+  with monitor status while the secure lock stayed active. User confirmed first-key
+  feedback without clicking and normal unlock. The worker exceeded its 120-second
+  wait while the user reviewed/unlocked: it kept the secure surface intact and
+  disabled further idle cycles. After confirmed unlock, explicit deferred cleanup
+  restored original idle 150/300 settings, stay-awake state and stock lock. Result
+  records this timeout/cleanup rather than claiming the worker exited successfully.
+- [ ] Suspend no-click focus, native screensaver animation startup and actual
+  multi-output/auth-scale cases. Automated capture tests cover refusal, failed
+  cleanup and mode 600 output; repeated locking was already accepted. Suspend
+  authentication remains functional after clicking, with the shared issue below.
+- [x] Secure deferred-restoration check: while the custom lock was secure, remove
+  its trial authorization and run `verify --repair`. The transition unit queued;
+  custom plugin and secure surface remained active. After user unlock, stock lock
+  restored automatically; unit exited with success. General theme-switch/race
+  scenarios remain part of lifecycle tests; never destroy active `WlSessionLock`.
+- [x] After unlocking, `scripts/lock-screen restore`; stock service/PAM verified,
+  no trial marker remains and global lock safe mode stays on.
+- [x] Record current revision and actual live results separately from offline
+  previews. Keep safe mode until the remaining issues are resolved or explicitly
+  accepted by the user; stock-reproduced issues are not automatically passed.
 
-## Phase 5 — Ownership, rollback, and upgrades
+**Shared wake-focus limitation:** two custom suspend/resume trials required a
+click before masks/input feedback appeared. A stock-lock suspend/resume reproduced
+the same symptom on the same setup. Only one active screen was reported after
+wake, so there is no evidence to blame the disabled dummy for this lock case.
+Whether pre-click keystrokes were retained was not established. A speculative
+native-reactivation focus hook passed isolated tests but failed the real trial;
+it was removed rather than shipped. Native focus/PAM/secure-surface behavior is
+retained. Investigate this as a shared lock/compositor wake issue independently;
+authentication still succeeded after clicking. No compositor Lua probes were used.
 
-- Extend `scripts/common.sh`, `install-dev`, `verify --check/--repair/--removed`, `uninstall-dev`, and the existing theme-set/post-boot hooks as needed. Include the new lock clone, SDDM theme/selector/marker, **separately owned Plymouth theme and boot rollback**, and palette-render status in collision checks. Stage/install in an order that keeps an operational stock boot unlock, greeter, and lock if a step fails. Exit without overwriting a path or boot/SDDM selection that another user/tool changed since our baseline.
-- Cyberpunk selected: enable owned presentation and marker only after visual and lifecycle gates. Any other theme: stop Cyberpunk-only presentation, restore **the recorded boot theme and greeter** and stock lock/Polkit/notifications/OSD/menu as appropriate, while retaining ordinary theme colors and the user's bar settings. A managed removal first switches to the prior theme and removes the owned boot selection and selector/privileged SDDM override before deleting assets. Missing theme assets or an interrupted hook must converge toward stock; document a working recovery path from a TTY if normal session startup fails. A raw deletion of the entire project before uninstall is **not** the supported removal method unless a separate independently installed recovery component is proven.
-- Keep `/etc/sddm.conf.d/autologin.conf` unchanged. Theme selection changes only the greeter presentation when Omarchy displays a greeter; it does not change whether a login is required.
-- Clones do not inherit upstream QML/JS changes automatically. The menu rereads Omarchy's default JSONC so ordinary new sections can appear, but new providers, contracts, authentication fixes, and stock lock changes require a **versioned diff/merge review**. Add a post-update compatibility check comparing each clone to its installed first-party source, preserving project visual code while incorporating relevant upstream behavior changes. Run the existing auth tests and route/select/input/OSD/notification/lock contract checks after an Omarchy update.
+### 4. Lifecycle and release gates
 
-## Acceptance sequence
+- [ ] Theme picker: Cyberpunk → stock → Cyberpunk with lock enabled/disabled.
+  Choices persist; native desktop services restore without overwriting external edits.
+- [ ] Interrupted hooks/concurrent switches: deferred lock transition, ownership
+  collisions and safe recovery. No system-wide boot/display-manager activity.
+- [x] Full active-theme uninstall → verify removed → repeated uninstall → reinstall
+  completed as a detached one-shot user service. Restored saved lock preference
+  and background; current integration/PAM checks pass. Compared unrelated shell
+  configuration (excluding managed clone/source plugin policy and normalizing the
+  menu identity), Bash contents excluding the exact managed stanza, and Bash mode;
+  all matched. Source/private artwork retained and safe mode stayed on.
+- [x] Native missing-link recovery cycle: deliberately removed owned menu/OSD links,
+  then uninstall → removed check → second uninstall → reinstall. Unrelated shell,
+  Bash contents/mode, existing baseline and safe mode all preserved. Detached result:
+  `/tmp/opencode/cyberpunk-recovery-result.json`, all comparisons true.
+- [x] Ten isolated tests execute the real lifecycle scripts against simulated native
+  APIs: clean first install/reinstall, failures before/after theme selection,
+  missing theme/clone links with stale references, interrupted removal, foreign-link
+  and edited-marker refusal, active-secure-lock refusal, operation serialization,
+  incomplete-baseline refusal, concurrent user theme selection preserved during
+  rollback and protection for a different newly active clone. Fixture checkouts
+  contain spaces and a colon, avoiding delimiter-based path parsing. Simulation
+  does not claim every real shell race/crash window is covered.
+- [x] Portable baseline/ownership implementation: first install atomically creates a
+  private snapshot; existing complete baselines are retained, incomplete/untrusted
+  baselines refused. Askpass resolves relative to the sourced checkout rather than
+  a personal Projects path. Installation/removal share a separate operation lock;
+  reconciliation can still run from native theme hooks without deadlocking.
+- [ ] Validate the documented first install end-to-end in a pristine supported user
+  session/machine. Isolated HOME testing uses simulated native APIs; live native
+  reinstall testing uses this machine's existing baseline and supported release.
+- [ ] Review diagnostics/legacy migration helpers and repository references before
+  further cleanup. Keep production plugins, reproducible previews, meaningful tests,
+  notices/licences and private data ignored.
+- [x] Run relevant tests, palette/pinned-lock checks, all plugin validations,
+  lifecycle acceptance and `git diff --check`. Earlier retained preview acceptance
+  still applies; lifecycle-only changes do not alter their visual sources.
+- [ ] README reflects only verified desktop/auth behavior and exact supported
+  environment; validate documented commands on a clean supported install.
+- [ ] Clear `.state/safe-mode` only after current lock and lifecycle gates pass
+  with user approval. Commit/push only when separately requested.
 
-1. Establish exact baseline hashes/values, validate the palette renderer, and preview the **Plymouth and SDDM pair** and denser lock faults without changing real boot/login/lock selection. Compare logo glow, field/button geometry, boot Enter hint, post-password boot bar, SDDM auth activity/reset, and fault rhythm at multiple scales.
-2. Verify normal and early OSD openings, normal/muted volume, screenshot geometry, and absence of a backing rectangle on both first **and repeated** opens. Make a one-value turquoise change and check every intended generated/rendered surface, including the two neon-logo assets.
-3. Check offline Plymouth progression and retry views and SDDM Qt 6 test mode. After boot-theme ownership/initramfs and recovery checks, separately test actual disk unlock/boot progress and real SDDM login after logout with correct user, session, wrong password, keyboard-only flow, and stock-theme fallback. Explicitly confirm the expected autologin behaviour. Do not infer successful authentication from either mock preview.
-4. Test manual and idle locks, correct and wrong password, fingerprint when available, screenshot fallback, suspend/wake, fast repeated locks, multi-monitor, reduced motion, and a theme switch requested while locked. Check live desktop visibility under Polkit/sudo versus the **frozen** blurred image under the lock.
-5. Run detached Cyberpunk → Osaka Jade → Cyberpunk cycles and active-theme uninstall → reinstall. Check every clone, Plymouth and SDDM state, owned marker/config paths, initramfs selection if activated, pre-existing user customizations, pending lock transitions, interrupted hook recovery, and a managed final removal. Nothing Cyberpunk should remain active on a regular theme.
+**Latest execution checkpoint:** 26 retained tests and native integration checks
+pass. Portable baseline creation/relocated sudo and recoverable removal implemented.
+Native partial lifecycle, desktop caller/Apps/OSD, supervised auth retry/cancel/sudo
+fallback/off-theme, controlled lock fallback and native idle/DPMS acceptance recorded.
+Extra actual-QML scale/motion/history/action checks passed in private sessions.
+Stock lock active/PAM-ready, safe mode on, saved preference enabled and no trial.
+Idle configuration/stay-awake restored. Boot/login remains retired.
 
-## Confirmed design choices
+Evidence under `/tmp/opencode/` is local/temporary: `cyberpunk-recovery-result.json`,
+`cyberpunk-desktop-result.json`, `cyberpunk-auth-*.json`, `cyberpunk-lock-{fallback,idle}.json`,
+`cyberpunk-notifications-{normal,reduced,scaled}.json`, `cyberpunk-menu-{scales,interactions}.json`.
+The idle result retains `workerTimedOut` and successful post-unlock cleanup details.
 
-1. Match Omarchy's login configuration, including the existing autologin. Style SDDM only when it actually appears (e.g. after logout).
-2. The lock's blurred **still capture of the current desktop**, with a wallpaper fallback for idle/screensaver and capture failures, is approved.
-3. The Omarchy-logo/password/progress screen seen at power-on is **Plymouth disk unlock**. The next design pass covers both it and the after-logout SDDM greeter, without changing LUKS, autologin, or either auth backend.
-4. Keep the Omarchy logo shape, but recolour its lettering fully turquoise with a turquoise neon bloom. Use corresponding palette-derived transparent assets for boot and logout; no unrecoloured stock green logo, quickhack eye, skull, or rectangular glow around the asset.
-5. Both centre layouts use the lock prompt's **same proportions and offsets**, with a slightly smaller neon wordmark close above and the existing login frame behind. The logo alone fractures briefly on initial appearance and then settles; the backdrop and controls never glitch. All three fields use a centred uppercase placeholder and the lock's beveled password-mask glyphs. Plymouth shows a `LOG IN` label with an Enter hint because it cannot provide a clickable action; SDDM has a functional `LOG IN` button. After boot password acceptance the Plymouth prompt disappears and the real boot-progress bar takes the former password-field position. SDDM shows only auth activity, never a fictitious boot percentage.
-
-### Visual-reference review
-
-- [CyberArch-Shell's showcased HUD and animated lock](https://github.com/ARCANGEL0/CyberArch-Shell) informs the scanner framing and brief fault cadence. Its code, game assets and desktop-capture technique are not used by Plymouth or SDDM; the new one-shot fracture stays inside the Omarchy wordmark.
-- The [RedModding icon/UI guide](https://wiki.redmodding.org/cyberpunk-2077-modding/modding-guides/custom-icons-and-ui.md) is a guide index, not a prescriptive login design. The [HUD Painter role reference](https://wiki.redmodding.org/cyberpunk-2077-modding/modding-guides/hud-painter-resource.md) distinguishes primary text/heading, loading graphics, understated panel outlines and secondary text. Here turquoise is the chosen identity/progress highlight, red remains the input/scanner/action border, and muted text stays subordinate. Validate those roles and avoid introducing unrelated gauges, fake percentages or source-game art.
-6. Increase the fault's visual density a little by spreading a few extra small fragments through the existing quick four-beat rhythm, while keeping true negative colours distinct from red-toned displacement and controls unobscured.
-7. Correct the volume glow's **recurring** rectangular-fill regression, including first and repeated openings; maintain the existing OSD event contract, proportions, turquoise volume/red mute colours, and click-through layer.
+**Release qualifications still open:** shared suspend refocus acceptance/resolution,
+true new-user/machine install, physical multi-output/auth-scale/special-response
+coverage and finer visual/input geometry cases. Qt scaling/simulation are not proof
+of these hardware cases. No further suspend trials or speculative focus patches
+without new evidence; safe-mode clearance still requires explicit user approval.

@@ -42,8 +42,8 @@ def write(content: str) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"install", "remove", "check", "absent"}:
-        raise ValueError("usage: manage-bashrc.py install|remove|check|absent")
+    if len(sys.argv) != 2 or sys.argv[1] not in {"install", "remove", "check", "absent", "validate"}:
+        raise ValueError("usage: manage-bashrc.py install|remove|check|absent|validate")
     action = sys.argv[1]
     current = read()
     if START in current or END in current:
