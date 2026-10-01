@@ -84,7 +84,6 @@ Item {
     refreshLidState()
     syncFromFlow()
     scanAnimation.restart()
-    rhythm.play()
     Qt.callLater(refocus)
   }
 
@@ -120,7 +119,6 @@ Item {
     errorTimer.restart()
     shakeAnimation.restart()
     scanAnimation.restart()
-    rhythm.play()
     Qt.callLater(refocus)
   }
 
@@ -154,7 +152,11 @@ Item {
     id: clearCaptureProc
     command: ["rm", "-f", "--", root.capturePath]
   }
-  LockArt.SignalRhythm { id: rhythm }
+  LockArt.SignalRhythm {
+    id: rhythm
+    repeatWhileVisible: root.dialogVisible && !root.capturePending
+    reducedMotion: Quickshell.env("OMARCHY_REDUCED_MOTION") === "1"
+  }
   SequentialAnimation {
     id: shakeAnimation
     NumberAnimation { target: root; property: "shakeOffset"; to: -8; duration: 35; easing.type: Easing.OutQuad }
@@ -345,17 +347,16 @@ Item {
         echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
         passwordMaskDelay: 0
         color: root.responseVisible ? root.foreground : "transparent"
-        selectionColor: Util.alpha(root.border, 0.45)
+        selectionColor: root.responseVisible ? Util.alpha(root.border, 0.45) : "transparent"
         selectedTextColor: root.responseVisible ? root.foreground : "transparent"
         font.family: root.fontFamily
         font.pixelSize: 18
-        cursorVisible: root.responseVisible && activeFocus && !root.submitted && !root.errorFlash
+        // Qt can change cursorVisible when focus changes. An empty delegate
+        // guarantees that masked mode cannot paint a second native caret.
+        cursorDelegate: Item {}
         readOnly: root.submitted || root.errorFlash
         enabled: root.dialogVisible
         onAccepted: root.submitResponse()
-        onTextChanged: masks.requestPaint()
-        onCursorPositionChanged: masks.requestPaint()
-        onActiveFocusChanged: masks.requestPaint()
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_Escape) { root.cancelRequest(); event.accepted = true }
         }
@@ -363,6 +364,9 @@ Item {
       Text {
         anchors.left: parent.left
         anchors.leftMargin: 56
+        anchors.right: parent.right
+        anchors.rightMargin: 56
+        horizontalAlignment: Text.AlignHCenter
         anchors.verticalCenter: parent.verticalCenter
         text: root.errorFlash ? "ACCESS DENIED" : (root.submitted ? "VERIFYING..." : "ENTER PASSWORD")
         visible: passwordInput.text.length === 0
@@ -371,65 +375,20 @@ Item {
         font.family: root.fontFamily
         font.pixelSize: 18
       }
-      Canvas {
-        id: masks
-        x: 56
-        anchors.verticalCenter: parent.verticalCenter
-        width: parent.width - 80
-        height: parent.height * 0.54
-        visible: !root.responseVisible && passwordInput.text.length > 0
-        onWidthChanged: requestPaint()
-        onPaint: {
-          var ctx = getContext("2d")
-          ctx.clearRect(0, 0, width, height)
-          var count = passwordInput.text.length
-          if (!count) return
-          var step = Math.min(20, width / count)
-          var glyph = Math.min(14, step * 0.76)
-          for (var i = 0; i < count; i++) {
-            var left = i * step
-            ctx.beginPath()
-            ctx.moveTo(left + 1, 0)
-            ctx.lineTo(left + glyph, 0)
-            ctx.lineTo(left + glyph, height - 5)
-            ctx.lineTo(left + glyph - Math.min(5, glyph * 0.35), height)
-            ctx.lineTo(left + 1, height)
-            ctx.closePath()
-            ctx.fillStyle = "#32ff435b"
-            ctx.fill()
-            ctx.lineWidth = 1.4
-            ctx.strokeStyle = "#ff435b"
-            ctx.stroke()
-          }
-          if (!root.submitted && !root.errorFlash && passwordInput.activeFocus) {
-            ctx.fillStyle = "#ff6474"
-            ctx.fillRect(Math.min(width - 2, passwordInput.cursorPosition * step + 2), 2, 2, height - 4)
-          }
-        }
-        MouseArea {
-          anchors.fill: parent
-          property int anchorPosition: 0
-          function positionAt(x) {
-            var count = passwordInput.text.length
-            var step = Math.min(20, masks.width / count)
-            return Math.max(0, Math.min(count, Math.round((x - 2) / step)))
-          }
-          onPressed: function(mouse) {
-            passwordInput.forceActiveFocus()
-            anchorPosition = positionAt(mouse.x)
-            passwordInput.cursorPosition = anchorPosition
-          }
-          onPositionChanged: function(mouse) {
-            if (pressed) passwordInput.select(anchorPosition, positionAt(mouse.x))
-          }
-        }
+      LockArt.PasswordSlots {
+        anchors.fill: parent
+        input: passwordInput
+        accent: root.accent
+        selectionColor: Util.alpha(root.border, 0.45)
+        caretEnabled: !root.submitted && !root.errorFlash
+        visible: !root.responseVisible
       }
       Rectangle {
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: 1
-        color: inputField.border.color
-        z: 4
+        x: passwordInput.x + passwordInput.cursorRectangle.x
+        y: passwordInput.y + passwordInput.cursorRectangle.y
+        width: 2; height: passwordInput.cursorRectangle.height
+        color: root.accent
+        visible: root.responseVisible && passwordInput.activeFocus && !root.submitted && !root.errorFlash
       }
     }
     Rectangle {
