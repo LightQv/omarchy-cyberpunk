@@ -88,10 +88,12 @@ omarchy plugin list --json | jq -e --arg id "$LOCK_ID" 'any(.[]; .id == $id and 
 "$PROJECT/scripts/manage-bashrc.py" install
 ln -s "$HOOK_SOURCE" "$HOOK_LINK"
 ln -s "$BOOT_SOURCE" "$BOOT_LINK"
+if [[ ${CYBERPUNK_RELEASE_STAGING:-} != 1 ]]; then
 omarchy theme set cyberpunk
 [[ $(current_theme) == cyberpunk ]] || die "theme changed during installation"
 omarchy theme bg set "$HOME/.local/state/omarchy/current/theme/backgrounds/01.png"
 "$PROJECT/scripts/verify" --check
 [[ $(current_theme) == cyberpunk ]] || die "theme changed during final verification"
+fi
 trap - EXIT
 printf 'Cyberpunk: installed. Run cyberpunk status; enable components with cyberpunk enable <component|all>.\n'

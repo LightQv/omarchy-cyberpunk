@@ -96,7 +96,8 @@ wallpapers**, copied without resizing or recompression:
 08.png  09.png  10.png  11.png  12.png  13.png
 ```
 
-All originals are **1672 × 941**. Numbering preserves their order in Omarchy's
+All bundled wallpapers are **1672 × 941**, copied byte-for-byte from the supplied
+files. Numbering preserves their order in Omarchy's
 background picker. **`01.png` is the installation default** and the source for the
 theme thumbnail and offline auth previews.
 
@@ -117,34 +118,66 @@ Omarchy includes those alongside the bundled collection.
 - Omarchy's Quickshell/Qt 6 environment, Python/PySide6, Bash, `jq`, `flock` and `grim`.
 - An unlocked, PAM-ready session with stock menu, Polkit, notifications, OSD and
   lock plugins enabled before first installation.
-- Pillow, FFmpeg and ImageMagick for offline preview/thumbnail tooling.
+- `curl` for release installation and updates.
+
+Pillow, FFmpeg and ImageMagick are only needed for development preview/thumbnail tooling.
 
 The session-lock generator checks the inspected upstream release. An Omarchy
 update that changes that contract needs review before custom-lock activation.
 
 ## // Install
 
-This is a development checkout with reversible user-owned integration. A pristine
-new-user/machine installation remains a release qualification; see
-**Status and development** below.
+Install the latest versioned release with one command, as your desktop user:
 
 ```sh
-git clone https://github.com/LightQv/omarchy-cyberpunk.git
-cd omarchy-cyberpunk
-scripts/install-dev
+curl -fsSL https://raw.githubusercontent.com/LightQv/omarchy-cyberpunk/main/install.sh | bash
 cyberpunk status
 cyberpunk check
 ```
 
-Keep the checkout in place while installed: the theme and five plugins are linked
-to it. The installer links `cyberpunk` into `~/.local/bin/`, which must be on your
-`PATH`. Installation adds an exact interactive-Bash sudo stanza and desktop
+**No Git checkout or sudo required.** The bootstrap downloads a tagged GitHub release,
+verifies its SHA-256 checksum and file manifest, installs it, and removes the temporary
+download. Existing checkout installations migrate with their saved choices preserved.
+
+| Installed content | Location |
+| --- | --- |
+| Theme and wallpapers | `~/.config/omarchy/themes/cyberpunk/` |
+| Optional plugins | `~/.config/omarchy/plugins/lightqv.cyberpunk-*/` |
+| CLI and shared support code | `${XDG_DATA_HOME:-~/.local/share}/omarchy-cyberpunk/` |
+| Command | `~/.local/bin/cyberpunk` |
+| Preferences, lock safeguards and release recovery | `${XDG_STATE_HOME:-~/.local/state}/omarchy-cyberpunk/` |
+
+Theme and plugin directories contain installed files, not links to a development
+checkout. Shared support code stays installed until uninstall. Ensure `~/.local/bin/`
+is on your `PATH`. Open a new terminal or source `~/.bashrc` after installation.
+
+```sh
+cyberpunk version
+cyberpunk update
+```
+
+Repeated installation of the same release validates it without changing installed
+files or desktop settings. Updates preserve component
+preferences, the selected theme and wallpaper. Edited or added project files are
+protected: preserve your changes and restore the release files before updating or
+removing. Interrupted transactions retain a private recovery journal; rerun the
+installer while unlocked to recover and retry.
+
+This initial release targets the inspected Omarchy version; pristine live
+new-user/machine installation remains a qualification under **Status and development**.
+
+<details>
+<summary>Installation details</summary>
+
+Installation adds an exact interactive-Bash sudo stanza and desktop
 `theme-set`/`post-boot` reconciliation hooks. Theme selection can restart OpenCode.
 
 First install creates a private baseline at
 `~/.local/state/omarchy-cyberpunk-backup/{shell.json,bashrc,modes.json}`.
 Existing complete baselines are retained. Incomplete/untrusted baselines and
 occupied foreign paths are refused before installation changes the desktop.
+
+</details>
 
 ## // Usage and customization
 
@@ -209,7 +242,8 @@ selected in a Wayland terminal. Off-theme, scripted sudo,
 
 ### Palette
 
-Edit `theme/colors.toml`, then render and reapply:
+For palette development, use a checkout and edit `theme/colors.toml`, then render
+and reapply. Release updates deliberately protect modified installed files.
 
 ```sh
 scripts/render-palette --write
@@ -238,18 +272,22 @@ Remove while unlocked:
 cyberpunk uninstall
 ```
 
-Removal restores native plugins and the recorded prior theme, removing only owned
-links/hooks, the CLI link and exact Bash stanza. Source, wallpapers, preferences and
-private backups stay available. Missing-link recovery is supported; foreign paths, edited markers and
-different active clones are protected.
+Removal restores native plugins and the recorded prior theme, removing project-owned
+installed theme/plugin/runtime files, hooks, the CLI link and exact Bash stanza.
+Preferences and private backups are retained. Foreign files, edited markers and
+different active clones are protected. Development checkouts remain untouched.
 
 ## // Status and development
 
-**32 regression tests** and live desktop/auth/lifecycle checks passed on the
+**47 regression tests** and live desktop/auth/lifecycle checks passed on the
 inspected setup. Native idle locking, display blank/wake and controlled
 screensaver-class wallpaper fallback passed too.
 The tests and public media/link checks also pass from a clean tracked-file export;
 first installation in a pristine live user/session remains a release qualification.
+Managed release migration also passed on the live desktop, including recovery from
+an OpenCode-restart interruption, with preferences, wallpaper, unrelated settings
+and the private baseline preserved. Fresh release installation, updates, rollback,
+uninstall and bootstrap integrity failures are covered by isolated lifecycle tests.
 
 **Known suspend limitation:** both stock and themed locks required a refocus click
 after suspend/resume on this machine. Authentication succeeded after clicking;
@@ -267,6 +305,20 @@ scripts/build-lock --check
 scripts/verify --check
 ```
 
+<details>
+<summary>Development checkout installation</summary>
+
+```sh
+git clone https://github.com/LightQv/omarchy-cyberpunk.git
+cd omarchy-cyberpunk
+scripts/install-dev
+```
+
+This development mode links files to the checkout, which must remain in place.
+Use it on an uninstalled setup; the release installer can migrate it later.
+
+</details>
+
 Offline auth tooling defaults to `01.png`, supports per-view wallpaper choices and
 never authenticates or registers secure surfaces.
 
@@ -277,8 +329,6 @@ commands and source/artwork hashes. Working captures stay local and ignored.
 ## // Credits
 
 - **Omarchy / Quickshell / Hyprland** — native platform and upstream components.
-- **Project author** — red/turquoise styling, auth presentation and generated
-  wallpaper collection.
 - **CyberArch-Shell** — visual inspiration for menu presentation; its code/artwork
   is not bundled.
 - **Cyberpunk 2077 / CD PROJEKT RED** — aesthetic inspiration.

@@ -31,6 +31,10 @@ if binary == "systemd-run":
     sys.exit(0)
 if command == control.get("fail"):
     sys.exit(23)
+if command == control.get("fail_once"):
+    control.pop("fail_once")
+    (home / "control.json").write_text(json.dumps(control))
+    sys.exit(23)
 c = json.loads(config.read_text())
 kinds = ("menu", "polkit", "notifications", "osd", "lock")
 def clone(kind): return "lightqv.cyberpunk-" + kind
@@ -61,6 +65,7 @@ if pathlib.Path(sys.argv[0]).name == "omarchy-shell":
                               secure=locked, passwordPam=True)))
     elif args == ["shell", "rescanPlugins"]: print("ok")
     else: sys.exit(2)
+elif args == ["version"]: print("4.0.4-1")
 elif args[:2] == ["plugin", "validate"]: pass
 elif args == ["plugin", "list", "--json"]:
     result = []
@@ -93,9 +98,9 @@ elif args[:2] == ["theme", "set"]:
     theme.write_text(args[2] + "\n")
     if control.get("fail_after_theme"):
         sys.exit(24)
-    project = pathlib.Path(os.environ["TEST_PROJECT"])
     hook = home / ".config/omarchy/hooks/theme-set.d/lightqv-cyberpunk-menu"
     if hook.exists():
+        project = hook.resolve().parents[2]
         code = subprocess.call([str(project / "scripts/verify"), "--repair"])
         if control.get("change_after_theme"):
             theme.write_text(control["change_after_theme"] + "\n")

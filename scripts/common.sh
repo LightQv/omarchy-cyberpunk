@@ -27,6 +27,9 @@ NOTIFY_ID=lightqv.cyberpunk-notifications
 OSD_ID=lightqv.cyberpunk-osd
 LOCK_ID=lightqv.cyberpunk-lock
 STATE_DIR="$PROJECT/.state"
+if [[ -f $PROJECT/release.json ]]; then
+  STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-cyberpunk"
+fi
 SAFE_MODE="$STATE_DIR/safe-mode"
 LOCK_PREF="$STATE_DIR/lock-preference"
 LOCK_TRIAL="$STATE_DIR/lock-trial"
@@ -37,12 +40,18 @@ OPERATION_LOCK="$LOCK.operation"
 # an install/removal is in progress. Serialize lifecycle commands without holding
 # that lock across a native theme change.
 lifecycle_lock() {
-  exec 7>"$OPERATION_LOCK"
+  if [[ ${CYBERPUNK_LIFECYCLE_FD:-} != 7 || $(readlink /proc/self/fd/7 2>/dev/null || true) != "$OPERATION_LOCK" ]]; then
+    exec 7>"$OPERATION_LOCK"
+  fi
   flock -n 7 || die "another install/removal is running"
 }
 
 die() { printf 'Cyberpunk: %s\n' "$*" >&2; exit 1; }
-owned_link() { [[ -L $1 && $(readlink -- "$1") == "$2" ]]; }
+owned_link() {
+  if [[ -L $1 && $(readlink -- "$1") == "$2" ]]; then return 0; fi
+  [[ -f $PROJECT/managed.json && -d $1 && ! -L $1 ]] || return 1
+  python -B "$PROJECT/scripts/release.py" owned "$1"
+}
 unoccupied() { [[ ! -e $1 && ! -L $1 ]]; }
 installed() {
   owned_link "$THEME_LINK" "$THEME_SOURCE" &&

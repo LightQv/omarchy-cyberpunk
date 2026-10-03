@@ -15,6 +15,7 @@ COMPONENTS = ("menu", "notifications", "osd", "sudo", "polkit", "lock")
 PROJECT = Path(__file__).resolve().parent.parent
 DIRECTORY = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "omarchy-cyberpunk"
 PATH = DIRECTORY / "preferences.json"
+STATE = DIRECTORY if (PROJECT / "release.json").is_file() else PROJECT / ".state"
 
 
 def trusted(path, directory=False):
@@ -102,8 +103,8 @@ def status():
     theme = theme_path.read_text().strip()
     plugins = json.loads(subprocess.check_output(["omarchy", "plugin", "list", "--json"], text=True))
     enabled = {plugin["id"] for plugin in plugins if plugin["enabled"]}
-    safe = PROJECT / ".state/safe-mode"
-    trial = PROJECT / ".state/lock-trial"
+    safe = STATE / "safe-mode"
+    trial = STATE / "lock-trial"
     safe_mode = safe.exists() or safe.is_symlink()
     trial_allowed = False
     if trial.exists() or trial.is_symlink():

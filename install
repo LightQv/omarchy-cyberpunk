@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root=$(realpath -e -- "$(dirname -- "${BASH_SOURCE[0]}")")
+exec python -B "$root/scripts/release.py" install "$root"

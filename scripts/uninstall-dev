@@ -131,12 +131,21 @@ for index in "${!plugin_paths[@]}"; do
     if [[ $id == "$LOCK_ID" ]]; then
       ! menu_enabled "$LOCK_ID" || die "custom lock reactivated; rerun removal after unlocking"
     fi
-    omarchy plugin remove "$id" --yes
+    if [[ -d $path && ! -L $path && -f $PROJECT/managed.json ]]; then
+      python -B "$PROJECT/scripts/release.py" remove-path "$path"
+      omarchy-shell shell rescanPlugins >/dev/null
+    else
+      omarchy plugin remove "$id" --yes
+    fi
   fi
 done
 if ! unoccupied "$THEME_LINK"; then
   owned_link "$THEME_LINK" "$THEME_SOURCE" || die "theme path changed during uninstall"
-  rm -- "$THEME_LINK"
+  if [[ -d $THEME_LINK && ! -L $THEME_LINK ]]; then
+    python -B "$PROJECT/scripts/release.py" remove-path "$THEME_LINK"
+  else
+    rm -- "$THEME_LINK"
+  fi
 fi
 "$PROJECT/scripts/manage-bashrc.py" remove
 if ! unoccupied "$CLI_LINK"; then
