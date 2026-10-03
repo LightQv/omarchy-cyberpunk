@@ -29,6 +29,11 @@ sudo() {
 
   local askpass
   askpass=$(realpath -m -- "$(dirname -- "${BASH_SOURCE[0]}")/../askpass/cyberpunk-askpass")
+  # Read the preference for every invocation so new choices apply to loaded shells.
+  if ! python -B "$(dirname -- "${BASH_SOURCE[0]}")/preferences.py" enabled sudo 2>/dev/null; then
+    command sudo "$@"
+    return $?
+  fi
   if [[ ! -x $askpass ]]; then
     command sudo "$@"
     return $?

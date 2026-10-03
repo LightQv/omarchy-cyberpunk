@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source_file=$(realpath -e -- "${BASH_SOURCE[0]}")
+source "$(dirname "$source_file")/common.sh"
+
+usage() {
+  printf '%s\n' 'Usage: cyberpunk <command>' '' \
+    'Commands:' \
+    '  status                  Show saved choices and actual state' \
+    '  list                    List toggleable components' \
+    '  enable <component|all>  Enable Cyberpunk presentation' \
+    '  disable <component|all> Use native presentation' \
+    '  check                   Check integration without changes' \
+    '  repair                  Apply the selected theme and saved choices' \
+    '  uninstall               Remove integration and restore native services' \
+    '  --help, -h, help        Show this help' '' \
+    'Examples:' \
+    '  cyberpunk enable menu' \
+    '  cyberpunk disable lock' \
+    '  cyberpunk enable all' '' \
+    'Enable selects Cyberpunk presentation; disable selects native presentation.' \
+    'Choices persist. Native themes always use native components.' \
+    'Use cyberpunk list for component names. Lock activation respects safe mode.'
+}
+list_components() {
+  printf '%-16s %s\n' \
+    'COMPONENT' 'DESCRIPTION' \
+    'menu' 'Command menu, Apps launcher and Keybindings' \
+    'notifications' 'Notification presentation' \
+    'osd' 'Volume/mute, brightness, microphone and media popups' \
+    'sudo' 'Graphical sudo in eligible Bash terminals' \
+    'polkit' 'Graphical application authorization' \
+    'lock' 'Session-lock presentation; respects safe mode'
+  printf '\n%-16s %s\n' 'all' 'Every component above'
+}
+[[ $# -gt 0 ]] || { usage; exit 1; }
+case $1 in
+  -h|--help|help) [[ $# == 1 ]] || die 'unexpected arguments'; usage; exit 0 ;;
+  list) [[ $# == 1 ]] || die 'usage: cyberpunk list'; list_components; exit 0 ;;
+  status) [[ $# == 1 ]] || die 'usage: cyberpunk status'; exec python -B "$PROJECT/scripts/preferences.py" status ;;
+  check) [[ $# == 1 ]] || die 'usage: cyberpunk check'; exec "$PROJECT/scripts/verify" --check ;;
+  repair) [[ $# == 1 ]] || die 'usage: cyberpunk repair'; lifecycle_lock; "$PROJECT/scripts/verify" --repair ;;
+  uninstall) [[ $# == 1 ]] || die 'usage: cyberpunk uninstall'; exec "$PROJECT/scripts/uninstall-dev" ;;
+  enable|disable)
+    [[ $# == 2 ]] || die 'usage: cyberpunk enable|disable <component|all>'
+    case $2 in menu|notifications|osd|sudo|polkit|lock|all) ;; *) die "unknown component: $2" ;; esac
+    lifecycle_lock
+    installed || die 'install the integration before changing preferences'
+    install_cli
+    value=enabled; [[ $1 == disable ]] && value=disabled
+    python -B "$PROJECT/scripts/preferences.py" set "$2" "$value"
+    "$PROJECT/scripts/verify" --repair || die 'choice saved; reconciliation incomplete, run cyberpunk repair'
+    printf 'Cyberpunk: %s %s; preference saved.\n' "$2" "$value"
+    python -B "$PROJECT/scripts/preferences.py" status
+    ;;
+  *) usage; die "unknown command: $1" ;;
+esac

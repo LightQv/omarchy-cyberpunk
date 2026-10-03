@@ -1,195 +1,286 @@
+<div align="center">
+
 # Omarchy Cyberpunk
 
-A red/turquoise desktop theme for **Omarchy 4.0.4-1**, with a curved HUD menu,
-warning-style notifications, centered action OSDs, and matching session-lock,
-sudo and Polkit presentation.
+**A red/turquoise HUD for your Omarchy desktop.**
 
-**Boot/disk unlock and SDDM login are managed by Omarchy.** Desktop theme changes
-do not select a boot theme, rebuild UKIs, install a privileged watcher, or change
-the display manager. Omarchy's native Unlock styling remains independent.
+Curved command menus · warning notifications · matching authentication
 
-## Readiness
+![Omarchy](https://img.shields.io/badge/Omarchy-4.0.4--1-ff3045?style=for-the-badge)
+![Hyprland](https://img.shields.io/badge/Hyprland-53e3d2?style=for-the-badge&logo=hyprland&logoColor=07090e)
+![Quickshell](https://img.shields.io/badge/Quickshell-Qt_6-ff3045?style=for-the-badge&logo=qt&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Development-53e3d2?style=for-the-badge)
 
-This is a development checkout, not yet a verified clean-install release.
-The desktop theme and sudo/Polkit presentation have passed live review and real
-authentication. The current custom session lock has also passed a supervised
-manual unlock and wrong-password retry, with user-accepted input and presentation.
-Repeated unlock, secure deferred restoration and the normal uninstall/reinstall
-cycle also passed. Native missing-link recovery, supervised wallpaper fallback,
-idle locking and display blank/wake now pass too. Portable baseline creation and
-relocated-checkout sudo routing have isolated first-install coverage. A pristine
-user/machine install and broader hardware cases remain release qualifications;
-the shared suspend-focus limitation below keeps lock safe mode on with
-`omarchy.lock` active.
-See the authoritative
-[roadmap](LOGIN-LOCK-PALETTE-OSD-PLAN.md) for accepted results and remaining gates.
+<img src="docs/media/hero.png" width="1100" alt="Curved Cyberpunk command menu with red and turquoise frames over wallpaper 06">
 
-## Components
+*Omarchy's native foundations. Your own Cyberpunk component mix.*
 
-| Component | Presentation |
+</div>
+
+## // The desktop, in red and turquoise
+
+Cyberpunk-inspired presentation built around **Omarchy's native shell and theme
+picker**. The palette, menu and authentication surfaces share the same visual
+language: angular frames, curved HUD rows, translucent red fields, turquoise
+highlights and frozen-background signal faults.
+
+## // Showcase
+
+<table>
+  <tr>
+    <td width="50%" align="center"><b>Command HUD · 06</b><br><a href="docs/media/menu.png"><img src="docs/media/menu.png" alt="Curved command menu detail"></a></td>
+    <td width="50%" align="center"><b>Apps · 07</b><br><a href="docs/media/apps.png"><img src="docs/media/apps.png" alt="Application launcher detail"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Keybindings · 09</b><br><a href="docs/media/keybindings.png"><img src="docs/media/keybindings.png" alt="Mirrored Keybindings layout with illustrative shortcut rows"></a></td>
+    <td align="center"><b>Notifications · 10</b><br><a href="docs/media/notifications.png"><img src="docs/media/notifications.png" alt="Joined warning notification frames with sample messages"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Volume · 12</b><br><a href="docs/media/volume.png"><img src="docs/media/volume.png" alt="Turquoise volume OSD"></a></td>
+    <td align="center"><b>Mute · 12</b><br><a href="docs/media/mute.png"><img src="docs/media/mute.png" alt="Red mute OSD"></a></td>
+  </tr>
+</table>
+
+### In motion
+
+<table>
+  <tr>
+    <td width="50%" align="center"><b>Menu navigation</b><br><img src="docs/media/menu.gif" alt="Animated menu navigation and search"></td>
+    <td width="50%" align="center"><b>Authentication signal faults</b><br><img src="docs/media/auth.gif" alt="Animated offline Polkit appearance demo"></td>
+  </tr>
+</table>
+
+### Matching authentication
+
+<table>
+  <tr>
+    <td width="33%" align="center"><b>Session lock · 12</b><br><a href="docs/media/lock.png"><img src="docs/media/lock-detail.png" alt="Offline session-lock appearance detail"></a></td>
+    <td width="33%" align="center"><b>Sudo · 09</b><br><a href="docs/media/sudo.png"><img src="docs/media/sudo-detail.png" alt="Offline sudo appearance detail"></a></td>
+    <td width="33%" align="center"><b>Polkit · 10</b><br><a href="docs/media/polkit.png"><img src="docs/media/polkit-detail.png" alt="Offline Polkit appearance detail"></a></td>
+  </tr>
+</table>
+
+Desktop views are actual component QML captured in a clean private preview session;
+shortcut rows and notifications use illustrative data. Auth views are offline
+appearance demos, with no real credentials or authentication requests. Optional
+components are shown enabled for the showcase; **fresh installs are base-only**.
+
+[Full-resolution motion clips and reproduction details →](docs/media/README.md)
+
+## // Components
+
+| Component | What you get |
 | --- | --- |
-| Desktop | Local Lucy/Night City backgrounds, palette-derived shell colors and directional red window borders. |
-| Menu | Curved command/App rows, search, stable hover, wheel scrolling and mirrored Keybindings. Native routes and caller semantics retained. |
-| Notifications | Pulsing warning icon, stepped joined border, wrapping message reveal and reverse dismissal. Native delivery/DND/history/actions retained. |
-| OSD | Turquoise volume, red mute and centered non-progress action messages. Native brightness/media/microphone payloads retained. |
-| Sudo/Polkit | Frozen/dimmed backdrop, beveled masks, one padded red caret and matching cut-corner action. Shared glitch effect repeats while visible. |
-| Session lock | Pinned native authentication service with custom backdrop/prompt and a brief settling effect. Changes defer while a secure lock is active. |
+| **Desktop** | Palette-derived shell colors, directional window borders and 13 bundled wallpapers. |
+| **Menu** | Curved command/App rows, search, stable hover, wheel navigation and mirrored Keybindings. |
+| **Notifications** | Warning icon, stepped joined frames, wrapping message reveal and animated dismissal; native DND, history and actions. |
+| **OSD** | Turquoise volume, red mute and centered action messages; native brightness, media and microphone payloads. |
+| **Sudo / Polkit** | Frozen/dimmed backdrop, beveled password masks, a single padded red caret and cut-corner actions. |
+| **Session lock** | Matching wallpaper/prompt and a brief settling effect, with pinned native PAM and secure session-lock handling. |
 
-Sudo/Polkit shuffle whole 0.85/1.10/1.40-second sequences with independently varied
-350–800 ms pauses. `OMARCHY_REDUCED_MOTION=1` suppresses their cosmetic loops.
-Captured desktop imagery is local/private; credentials are never sent through
-shell IPC or written into captures or diagnostic files.
+Sudo/Polkit shuffle 0.85/1.10/1.40-second fault sequences with varied pauses.
+`OMARCHY_REDUCED_MOTION=1` suppresses their cosmetic loops. Passwords stay in the
+native authentication flow; diagnostic IPC and review captures do not carry them.
 
-## Development installation
+## // Wallpapers
 
-Dependencies include Omarchy's Quickshell/Qt 6 environment, Python/PySide6, Bash,
-`jq`, `flock`, and `grim`. Offline previews also require Pillow and FFmpeg.
-The lock generator is pinned to the inspected Omarchy release and refuses
-unreviewed upstream authentication changes.
+[`theme/backgrounds/`](theme/backgrounds/) contains the author's **13 generated
+wallpapers**, copied without resizing or recompression:
 
-1. Review `THIRD_PARTY.md`. Prepare personal-use artwork with
-   `scripts/fetch-wallpapers`; artwork and derived previews are Git-ignored.
-2. First installation creates a private baseline snapshot at
-   `~/.local/state/omarchy-cyberpunk-backup/{shell.json,bashrc,modes.json}`.
-   Existing complete baselines are retained unchanged. An incomplete or symlinked
-   baseline is refused; preserve it elsewhere before retrying. No private baseline
-   from the development machine is required. The checkout can live at an arbitrary
-   absolute path, including one containing spaces. Keep it in place while installed.
-3. Review the scripts and run from the checkout while unlocked:
-
-   ```sh
-   scripts/render-palette --check
-   scripts/build-lock --check
-   scripts/install-dev
-   scripts/verify --check
-   ```
-
-Installation creates project-owned links for the theme and five shell plugins,
-an exact interactive-Bash stanza, and `theme-set`/`post-boot` **desktop**
-reconciliation hooks. The post-boot hook repairs interrupted desktop selection;
-it does not change Plymouth, SDDM, initramfs or UKIs.
-Fresh installation starts with the custom lock suppressed for live acceptance.
-
-Omarchy theme selection may restart OpenCode. When installing through an agent,
-use a one-shot user service if necessary, and inspect its exit status:
-
-```sh
-systemd-run --user --collect --unit=omarchy-cyberpunk-install "$PWD/scripts/install-dev"
-systemctl --user show omarchy-cyberpunk-install.service -p Result -p ExecMainStatus
+```text
+01.png  02.png  03.png  04.png  05.png  06.png  07.png
+08.png  09.png  10.png  11.png  12.png  13.png
 ```
 
-## Usage and lock control
+All originals are **1672 × 941**. Numbering preserves their order in Omarchy's
+background picker. **`01.png` is the installation default** and the source for the
+theme thumbnail and offline auth previews.
 
-Select Cyberpunk through Omarchy's normal desktop theme picker. Other desktop
-themes restore stock menu, notifications, OSD, Polkit and lock presentation.
-Use `scripts/verify --repair` to reconcile an interrupted switch.
+<a href="docs/media/wallpapers.png"><img src="docs/media/wallpapers.png" width="1000" alt="Native Omarchy wallpaper picker with the numbered Cyberpunk collection and 07 selected"></a>
+
+Use **Style → Background** in the Omarchy menu, or cycle with:
 
 ```sh
-scripts/lock-screen status
-scripts/lock-screen enable
-scripts/lock-screen disable
+omarchy theme bg next
 ```
 
-The saved preference affects only the session lock. Disabling it leaves the
-desktop theme, sudo and Polkit active. `.state/safe-mode` suppresses the custom
-lock until acceptance; it is no longer a three-screen boot/greeter switch.
+Additional personal backgrounds can go in `~/.config/omarchy/backgrounds/cyberpunk/`.
+Omarchy includes those alongside the bundled collection.
 
-For a supervised current-design lock trial:
+## // Requirements
+
+- **Omarchy 4.0.4-1** in a running Hyprland/Wayland session.
+- Omarchy's Quickshell/Qt 6 environment, Python/PySide6, Bash, `jq`, `flock` and `grim`.
+- An unlocked, PAM-ready session with stock menu, Polkit, notifications, OSD and
+  lock plugins enabled before first installation.
+- Pillow, FFmpeg and ImageMagick for offline preview/thumbnail tooling.
+
+The session-lock generator checks the inspected upstream release. An Omarchy
+update that changes that contract needs review before custom-lock activation.
+
+## // Install
+
+This is a development checkout with reversible user-owned integration. A pristine
+new-user/machine installation remains a release qualification; see the
+[acceptance roadmap](LOGIN-LOCK-PALETTE-OSD-PLAN.md).
 
 ```sh
-scripts/lock-screen trial
-# Manually lock, test authentication, then unlock.
-scripts/lock-screen restore
+git clone https://github.com/LightQv/omarchy-cyberpunk.git
+cd omarchy-cyberpunk
+scripts/install-dev
+cyberpunk status
+cyberpunk check
 ```
 
-These operations require an unlocked, PAM-ready session. Do not remove the
-safe-mode file until the lock trial and lifecycle checks pass. No command above
-automatically locks, logs out, or reboots the machine.
+Keep the checkout in place while installed: the theme and five plugins are linked
+to it. The installer links `cyberpunk` into `~/.local/bin/`, which must be on your
+`PATH`. Installation adds an exact interactive-Bash sudo stanza and desktop
+`theme-set`/`post-boot` reconciliation hooks. Theme selection can restart OpenCode.
 
-## Sudo and Polkit
+First install creates a private baseline at
+`~/.local/state/omarchy-cyberpunk-backup/{shell.json,bashrc,modes.json}`.
+Existing complete baselines are retained. Incomplete/untrusted baselines and
+occupied foreign paths are refused before installation changes the desktop.
 
-Interactive Bash uses graphical askpass only when Cyberpunk is selected in a
-Wayland terminal. Open a new terminal or source `~/.bashrc` to load the function.
-Off-theme, scripted sudo, `sudo -n` and `sudo -S` retain native behavior.
-The actual command is native `sudo -A`; only an accepted password reaches sudo
-through askpass stdout.
+## // Usage and customization
 
-Polkit retains its native agent/PAM flow. Only one agent should be active.
-If a manual plugin change breaks registration, restore stock:
+Select **Cyberpunk** through Omarchy's normal theme picker. Other themes restore
+native desktop services. The project follows your existing Omarchy keybindings.
+
+### One command, six optional components
+
+**Fresh installation is base-theme only:** palette, wallpapers and borders with
+native menu, notifications, OSD, sudo, Polkit and lock presentation. Enable the
+components you want from any directory:
 
 ```sh
-omarchy plugin disable lightqv.cyberpunk-polkit
-omarchy plugin enable omarchy.polkit
+cyberpunk --help
+cyberpunk list
+cyberpunk status
+cyberpunk enable menu
+cyberpunk disable menu
+cyberpunk enable all
+cyberpunk disable all
 ```
 
-## Palette and previews
+Toggle names: `menu`, `notifications`, `osd`, `sudo`, `polkit`, `lock` — or `all`.
 
-Edit `theme/colors.toml`, then run `scripts/render-palette --write` before
-reapplying the desktop theme. The renderer updates ANSI/shell roles and the
-auth-preview palette. Sudo reads the active palette when opening.
+`--help` explains the commands and gives examples. `list` describes the toggleable
+components; `status` reports your saved choices and actual providers. Help, list,
+status and check are read-only.
+
+**Enable** selects Cyberpunk presentation; **disable** restores native
+presentation while keeping the functionality available. `osd` includes the volume,
+mute, brightness, microphone and media popups. The audio panel/bar widget remains
+independent of this project.
+
+`all` updates all six preferences together. These commands do not select a theme.
+Switching to a native theme uses native components; switching back to Cyberpunk
+restores your last component choices. `repair` follows these choices instead of
+enabling every component.
+
+Preferences are stored under `XDG_STATE_HOME`, defaulting to
+`~/.local/state/omarchy-cyberpunk/preferences.json`, outside the checkout, and
+retained across removal/reinstallation. Existing installations
+migrate their current Cyberpunk component selection and legacy lock preference;
+fresh defaults do not reset an existing installation.
+
+### Session lock
+
+`cyberpunk enable lock` saves the choice but respects **lock safe mode**. Status
+shows both the saved preference and actual provider, including blocked/pending
+activation. An active secure lock stays intact; provider changes wait until
+unlock. Safe-mode clearance remains a separate development acceptance gate.
+
+Supervised trial/restore scripts remain internal developer tooling. Everyday
+users only need the same enable/disable commands as the other components.
+
+### Sudo and Polkit
+
+Open a new interactive Bash terminal after installation or upgrade, or source
+`~/.bashrc` once. Afterward, loaded integration reads the sudo preference on each
+invocation. Graphical sudo is used when its preference is enabled and Cyberpunk is
+selected in a Wayland terminal. Off-theme, scripted sudo,
+`sudo -n` and `sudo -S` retain native routing. Polkit keeps its native agent/PAM flow.
+
+### Palette
+
+Edit `theme/colors.toml`, then render and reapply:
 
 ```sh
-python scripts/preview-final
-python scripts/verify-final-previews
-python -m unittest discover -s tests
+scripts/render-palette --write
+omarchy theme set cyberpunk
+```
+
+Omarchy's normal theme/background switching semantics still apply. To explicitly
+return to the default wallpaper:
+
+```sh
+omarchy theme bg set "$HOME/.local/state/omarchy/current/theme/backgrounds/01.png"
+```
+
+## // Recovery and removal
+
+Inspect or reconcile the selected theme and saved choices:
+
+```sh
+cyberpunk check
+cyberpunk repair
+```
+
+Remove while unlocked:
+
+```sh
+cyberpunk uninstall
+```
+
+Removal restores native plugins and the recorded prior theme, removing only owned
+links/hooks, the CLI link and exact Bash stanza. Source, wallpapers, preferences and
+private backups stay available. Missing-link recovery is supported; foreign paths, edited markers and
+different active clones are protected. See the roadmap for lifecycle evidence.
+
+## // Status and development
+
+**32 regression tests** and live desktop/auth/lifecycle checks passed on the
+inspected setup. Native idle locking, display blank/wake and controlled
+screensaver-class wallpaper fallback passed too.
+The tests and public media/link checks also pass from a clean tracked-file export;
+first installation in a pristine live user/session remains a release qualification.
+
+**Known suspend limitation:** both stock and themed locks required a refocus click
+after suspend/resume on this machine. Authentication succeeded after clicking;
+ordinary idle/DPMS wake passed with immediate feedback. Stock lock remains the
+safe-mode default. Physical extra-output/scale, trackpad and unsupported auth flows
+need an appropriate setup for further acceptance.
+
+Boot/disk unlock and SDDM login remain managed by Omarchy. The former project
+boot/login experiment is retired; the active product covers desktop/session auth.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests
+scripts/render-palette --check
 scripts/build-lock --check
+scripts/verify --check
 ```
 
-`preview/` contains **lock, sudo and Polkit** stills/clips. They cannot authenticate
-or register secure surfaces and are not substitutes for live trials.
+Offline auth tooling defaults to `01.png`, supports per-view wallpaper choices and
+never authenticates or registers secure surfaces.
 
-## Update, recovery and removal
+The showcase uses `06`, `07`, `09`, `10` and `12`. See
+[media reproduction instructions](docs/media/README.md) for the exact renderer
+commands and source/artwork hashes. Working captures stay local and ignored.
 
-After an Omarchy update, run `scripts/build-lock --check` and plugin validations
-before custom lock activation. A pin mismatch requires upstream review.
-Theme/preference transitions must preserve an active secure lock and defer
-reconciliation until unlock rather than destroying its surface.
+Detailed live acceptance and remaining release gates:
+[LOGIN-LOCK-PALETTE-OSD-PLAN.md](LOGIN-LOCK-PALETTE-OSD-PLAN.md).
 
-```sh
-scripts/uninstall-dev
-scripts/verify --removed
-```
+## // Credits
 
-Removal restores native plugins and the recorded prior desktop theme, removes
-only owned links and the exact Bash stanza, and retains personal imagery/source
-and private backups. It does not restore whole shell/Bash configurations over
-unrelated edits. A real active-theme uninstall, removal check, repeated uninstall
-and reinstall passed, with unrelated shell/Bash settings, saved lock preference
-and background preserved. A second native cycle recovered deliberately missing
-menu/OSD links and preserved the original baseline. Ten isolated lifecycle tests
-cover interrupted states, ownership conflicts, operation concurrency and clean
-first-install snapshot creation. New-machine end-to-end installation remains a
-release qualification. Missing owned links can be recovered by
-rerunning `scripts/uninstall-dev`, followed by `scripts/install-dev`. Removal
-temporarily rediscovers missing clones only when their configuration still needs
-native restoration. Occupied foreign paths and edited sudo markers are refused.
-Install/removal commands are serialized independently of theme reconciliation.
-If another active clone now owns one of the native services, removal stops before
-changing configuration rather than disabling that unrelated clone.
+- **Omarchy / Quickshell / Hyprland** — native platform and upstream components.
+- **Project author** — red/turquoise styling, auth presentation and generated
+  wallpaper collection.
+- **CyberArch-Shell** — visual inspiration for menu presentation; its code/artwork
+  is not bundled.
+- **Cyberpunk 2077 / CD PROJEKT RED** — aesthetic inspiration.
 
-### Known suspend/resume limitation
-
-After resume, password feedback required clicking the field in both the themed
-lock and stock `omarchy.lock` on this machine. Authentication succeeded afterward.
-The stock comparison indicates a shared issue rather than a custom-mask-only
-regression; it does not establish the exact cause or whether earlier keystrokes
-were retained. A tested speculative focus hook did not fix the live issue and was
-removed. The theme retains native lock focus/secure-surface behavior, and this
-limitation remains open pending resolution or explicit user acceptance.
-
-This is separate from ordinary idle/display blanking: a supervised native idle
-lock and DPMS off/on passed with first-key feedback and correct unlock. Original
-idle/stay-awake settings were restored afterward. Controlled screensaver-class
-wallpaper fallback also passed; native screensaver animation startup is not
-claimed as accepted by that controlled check.
-
-### Historical boot/login experiment
-
-Boot/login support was retired, and installed-system cleanup is complete.
-Its implementation, removal-only migration, tests and old documentation are
-preserved outside the active checkout at
-`~/Projects/omarchy-cyberpunk-archives/boot-login-retired-2026-10-01/`.
-There is no boot/greeter migration or activation code in the desktop product.
-
-See `THIRD_PARTY.md` and `LICENSE` for provenance. Unofficial fan-made project;
-not affiliated with CD PROJEKT RED.
+See [THIRD_PARTY.md](THIRD_PARTY.md) and [LICENSE](LICENSE) for provenance and notices.
+Unofficial fan-made project; not affiliated with CD PROJEKT RED.

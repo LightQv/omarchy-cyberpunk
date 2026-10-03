@@ -15,13 +15,95 @@ This is a local historical snapshot, not dormant product functionality.
 
 ## Current authoritative checkpoint
 
+### Public showcase checkpoint
+
+Curated media under `docs/media/` uses `06` for menu/hero, `07` for Apps/picker,
+`09` for Keybindings/sudo, `10` for notifications/Polkit and `12` for OSD/lock.
+Actual desktop component QML was captured in a private HOME/session bus over a
+clean wallpaper; shortcut rows/messages are illustrative. Auth renders remain
+offline/non-authenticating. All three 1920×1080/50 FPS auth clips pass motion/settling
+checks and now have source/artwork manifests. Public stills, detail crops, two GIFs
+and four full-resolution clips replace the former placeholder-media presentation.
+
+README uses a real component-render hero, gallery, motion and auth sections, a
+wallpaper picker view, concise public CLI usage, and linked media reproduction
+details. Working renders/logs stay ignored in `preview/` and `showcase/`. Preview
+tooling no longer assumes an agent-specific `/tmp/opencode` directory.
+The redundant legacy `preview-lock`/`Preview.qml` mock is removed; current auth
+renders use the shared `preview-final`/`ReviewScene.qml` pipeline and manifest checks.
+
+The current machine has no QEMU/libvirt tooling. A genuine pristine machine/user
+session installation remains a stated development qualification; isolated HOME
+tests use simulated native APIs and are not presented as clean-machine acceptance.
+Publication is a development checkpoint, with stock lock safe mode preserved and
+the shared suspend refocus issue documented.
+The staged tracked-file export was checked independently: all 32 tests, the 20
+public media/hash/link checks, palette/pin checks and CLI help pass without local
+ignored assets/state. This verifies packaging completeness, not a pristine live
+Omarchy user/session installation. Current desktop preferences and default wallpaper
+remain preserved after preview capture.
+
+### Persistent component CLI
+
+Public interface: `cyberpunk --help`, `list`, `status`, `enable|disable <component|all>`, `check`,
+`repair`, and `uninstall`. Components are menu, notifications, OSD (including volume),
+sudo, Polkit and session lock. The installer owns a `~/.local/bin/cyberpunk` symlink.
+Fresh installs select the Cyberpunk base palette/artwork with all six preferences
+disabled. Existing installs migrate active Cyberpunk choices and the legacy lock
+preference without resetting the current setup or clearing safe mode.
+
+The private, versioned preferences file lives under XDG_STATE_HOME, defaulting to
+`~/.local/state/omarchy-cyberpunk/preferences.json`. Updates are serialized and
+atomic; preferences remain after uninstall/reinstall. Native themes always select
+native components, and returning to Cyberpunk reapplies saved choices. Theme and
+post-boot hooks, public repair and deferred lock restoration share the reconciler.
+Help (`--help`, `-h`, `help`), `list`, `status` and `check` do not initialize or modify
+state. `list` describes all six components and the `all` selector. Public lock toggles save the
+choice while respecting safe mode and deferring active secure-surface changes.
+
+32 isolated tests pass, including fresh base-only defaults, the installed command
+from another working directory, six individual toggles, all on/off, saved mixed
+theme round-trips, migration, retained preferences on reinstall, read-only status/
+check, repair after failed activation, malformed/foreign-path protection and secure
+deferred restoration. Sudo PTY tests cover enabled/disabled preference routing.
+Live migration preserved the existing desktop selection: five components enabled,
+lock preference enabled but native lock active under safe mode. The detached native
+CLI check completed successfully: all six individual preference toggles and all
+on/off passed; a mixed configuration survived Cyberpunk → matte-black → Cyberpunk
+with native services selected off-theme and the exact mixture restored on return.
+Original preferences/wallpaper, unrelated shell settings, Bash contents/mode and
+stock-lock safe mode were preserved. Evidence:
+`/tmp/opencode/cyberpunk-cli-live-result.json`, all comparisons true.
+
+### Wallpaper and README checkpoint
+
+The author-supplied generated collection is bundled as `theme/backgrounds/01.png`
+through `13.png`, in filename order. All 13 originals decode at 1672×941 and match
+their source checksums; `01.png` is the installation and preview default. The old
+CyberArch Lucy/CDPR screenshot placeholders and their downloader are removed.
+The 900×506 theme thumbnail is derived from `01.png` and included in the repository.
+
+The installed, user-owned staged wallpaper directory was refreshed directly,
+with `01.png` selected through native background IPC. Installed checksums and the
+native picker cache confirm all 13 thumbnails in order. This wallpaper-only update
+preserved the active desktop/plugin selection and stock-lock safe mode.
+
+README uses the supplied artwork and native Omarchy-specific feature/control
+sections. Fresh curated UI/auth media is now generated; see the public showcase
+checkpoint above. Original appearance/authentication acceptance remains recorded
+separately from the new non-authenticating showcase renders.
+
+After the artwork/default-path and lifecycle-fixture updates, all 26 tests, Bash
+syntax, pinned-lock/palette checks, lock-plugin validation, live integration and
+`git diff --check` pass. The new wallpaper set is ready for fresh showcase capture.
+
 | Area | Accepted/proven | Remaining |
 | --- | --- | --- |
 | Desktop/menu | Native caller select/input return/cancel/detail delivery, back and real Apps launch pass. Wrap/rapid-empty search exercised in actual QML. Extra Qt scales 1.5/2 and reduced motion render/focus checks pass. Earlier mouse/heading/fade acceptance retained. | Physical trackpad not attached; actual extra-output/compositor-scale acceptance not established by Qt scaling tests. |
 | Notifications/OSD | Actual notification QML delivery, dismissal/history replay, DND and default actions pass in private sessions at normal/reduced motion and Qt scale 1.5. Repeated OSD transitions and auto-hide pass on the live desktop. | Broader hardware-specific visual acceptance; private-session tests do not replace every native caller sample. |
 | Sudo/Polkit | Real auth/retry/cancel passed. Sudo capture-failure fallback and native off-theme terminal routing accepted live. Correct masks/caret/placeholder presentation accepted. | Fingerprint unavailable; installed PAM did not request a visible response. Further auth-scale/special-response acceptance needs a supporting setup. |
 | Session lock | Manual/repeated/deferred unlock, live controlled-screensaver-class wallpaper fallback and native idle/DPMS blank/wake passed, including first-key feedback. Capture guards pass. Stock restored. | Suspend refocus click still reproduced in both stock/custom. Native screensaver animation startup and extra-output/scale cases remain unaccepted. |
-| Runtime policy/lifecycle | Normal and missing-link native uninstall/reinstall cycles pass with unrelated settings, modes, baseline and safe mode preserved. Ten isolated transaction tests cover interruption, conflicts, concurrency and clean first-install. | New-machine/second-user end-to-end installation and broader race/hardware cases remain release qualifications. |
+| Runtime policy/lifecycle | Normal/missing-link native lifecycle and public CLI toggle/theme round-trips pass with unrelated settings and safe mode preserved. Sixteen isolated lifecycle/CLI tests cover fresh base-only defaults, migration, persistence, read-only inspection, interruption, conflicts and concurrency. | New-machine/second-user end-to-end installation and broader race/hardware cases remain release qualifications. |
 | Retired work | Installed-system cleanup and active-checkout cleanup complete. Experimental implementation, removal helper and tests are in the external archive. | None; boot/login is outside product scope. |
 
 ### Retirement completed
@@ -34,19 +116,20 @@ obsolete system guards removed, and stale bytecode caches cleared. Active hooks,
 lock policy, palette and three auth previews have no dependency on archived work.
 Detailed historical findings and migration code live in the external archive.
 
-Retain safe mode only for current session-lock acceptance. Use
-`scripts/lock-screen {status|enable|disable|trial|restore}`; no three-screen matrix
-or boot/greeter lifecycle remains. Do not use compositor Lua probes for live review:
+Retain safe mode only for current session-lock acceptance. Use the public
+`cyberpunk` component controls; `scripts/lock-screen trial|restore` remains internal
+supervised tooling. No three-screen matrix or boot/greeter lifecycle remains.
+Do not use compositor Lua probes for live review:
 a previous probe likely triggered Hyprland watchdog recovery.
 
 ## Remaining ordered product work
 
 ### Verification of the reduced scope
 
-The retained suite has **26 passing tests**: sudo transport/editing/presentation,
+The retained suite has **32 passing tests**: sudo transport/editing/presentation,
 shared lock/Polkit input and rhythm, palette propagation, wheel accumulation,
 lock-only policy, screensaver capture refusal, failed-capture cleanup and private
-capture publication, plus ten lifecycle transaction/first-install tests.
+capture publication, plus sixteen lifecycle/CLI/preference transaction tests.
 Retirement-only tests are preserved with their archived helper.
 All five plugin manifests, Bash syntax, palette and pinned-lock checks,
 `scripts/verify --check`, three-screen preview motion contracts, and
@@ -189,14 +272,14 @@ authentication still succeeded after clicking. No compositor Lua probes were use
   further cleanup. Keep production plugins, reproducible previews, meaningful tests,
   notices/licences and private data ignored.
 - [x] Run relevant tests, palette/pinned-lock checks, all plugin validations,
-  lifecycle acceptance and `git diff --check`. Earlier retained preview acceptance
-  still applies; lifecycle-only changes do not alter their visual sources.
+  lifecycle acceptance and `git diff --check`. Earlier preview acceptance remains
+  historical; new showcase captures must be regenerated with the supplied artwork.
 - [ ] README reflects only verified desktop/auth behavior and exact supported
   environment; validate documented commands on a clean supported install.
 - [ ] Clear `.state/safe-mode` only after current lock and lifecycle gates pass
   with user approval. Commit/push only when separately requested.
 
-**Latest execution checkpoint:** 26 retained tests and native integration checks
+**Latest execution checkpoint:** 32 retained tests and native integration checks
 pass. Portable baseline creation/relocated sudo and recoverable removal implemented.
 Native partial lifecycle, desktop caller/Apps/OSD, supervised auth retry/cancel/sudo
 fallback/off-theme, controlled lock fallback and native idle/DPMS acceptance recorded.

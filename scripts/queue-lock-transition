@@ -3,5 +3,6 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 unit=cyberpunk-lock-transition.service
 if systemctl --user is-active --quiet "$unit"; then exit 0; fi
-systemd-run --user --collect --unit="${unit%.service}" "$PROJECT/scripts/wait-unlocked" >/dev/null
+systemd-run --user --collect --unit="${unit%.service}" \
+  --setenv="XDG_STATE_HOME=${XDG_STATE_HOME:-$HOME/.local/state}" "$PROJECT/scripts/wait-unlocked" >/dev/null
 printf 'Cyberpunk: lock active; theme-specific lock change deferred until unlock.\n'

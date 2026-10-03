@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Persist the only optional screen in this product: the session lock.
+# Compatibility wrapper and internal supervised-trial tooling.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 [[ $# == 1 ]] || die 'usage: scripts/lock-screen {status|enable|disable|trial|restore}'
 mode=$1
 case $mode in status|enable|disable|trial|restore) ;; *) die 'unknown lock-screen action' ;; esac
+if [[ $mode == enable || $mode == disable ]]; then
+  exec "$PROJECT/scripts/cyberpunk" "$mode" lock
+fi
 if [[ $mode == status ]]; then
   if lock_enabled; then printf 'lock preference: enabled\n'; else printf 'lock preference: disabled\n'; fi
   printf 'lock safe mode: %s\n' "$([[ -e $SAFE_MODE ]] && printf on || printf off)"
@@ -32,13 +35,6 @@ if [[ $mode == trial ]]; then
 elif [[ $mode == restore ]]; then
   [[ -f $LOCK_TRIAL && ! -L $LOCK_TRIAL && $(stat -c %u "$LOCK_TRIAL") == "$EUID" && $(<"$LOCK_TRIAL") == lock ]] || die 'no owned lock trial to restore'
   rm -- "$LOCK_TRIAL"
-else
-  # Validate before replacing a persisted preference; publish atomically.
-  lock_enabled || true
-  tmp=$(mktemp "$STATE_DIR/.lock-preference.XXXXXXXX")
-  trap 'rm -f -- "$tmp"' EXIT
-  if [[ $mode == enable ]]; then printf 'enabled\n' >"$tmp"; else printf 'disabled\n' >"$tmp"; fi
-  mv -fT -- "$tmp" "$LOCK_PREF"
 fi
 if ! "$PROJECT/scripts/verify" --repair; then
   if [[ $mode == trial && -f $LOCK_TRIAL && ! -L $LOCK_TRIAL ]]; then

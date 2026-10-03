@@ -2,6 +2,7 @@
 """Validate native-size previews: settling screens versus looping auth dialogs."""
 
 import json
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -26,10 +27,20 @@ def difference(first, second):
 
 def main():
     expected = {f"{name}.{extension}" for name in NAMES for extension in ("png", "mp4")}
+    expected.add("manifest.json")
     actual = {path.name for path in ROOT.iterdir()}
     if actual != expected:
         raise RuntimeError(f"Unexpected review files: missing {sorted(expected - actual)}, "
-                           f"extra {sorted(actual - expected)}")
+                            f"extra {sorted(actual - expected)}")
+    manifest = json.loads((ROOT / "manifest.json").read_text())
+    if manifest["version"] != 1 or set(manifest["wallpapers"]) != set(NAMES):
+        raise RuntimeError("Unexpected preview manifest")
+    for path, expected_digest in manifest["inputs"].items():
+        if hashlib.sha256((ROOT.parent / path).read_bytes()).hexdigest() != expected_digest:
+            raise RuntimeError(f"Preview source changed: {path}; regenerate previews")
+    for entry in manifest["wallpapers"].values():
+        if hashlib.sha256((ROOT.parent / entry["file"]).read_bytes()).hexdigest() != entry["sha256"]:
+            raise RuntimeError("Preview wallpaper changed; regenerate previews")
     for name in NAMES:
         still = ROOT / f"{name}.png"
         video = ROOT / f"{name}.mp4"

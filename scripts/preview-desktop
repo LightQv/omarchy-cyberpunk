@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Capture actual desktop component QML with curated data on a private bus/HOME."""
+
+import io
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+
+from PIL import Image
+from preview_video import encode_video
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / "showcase"
+SIZE = (1920, 1080)
+
+
+def main():
+    OUTPUT.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".capture-", dir=OUTPUT) as directory:
+        base = Path(directory)
+        home = base / "home"
+        current = home / ".local/state/omarchy/current"
+        current.mkdir(parents=True)
+        (current / "theme").symlink_to(ROOT / "theme")
+        for name, source in {"Commons": Path("/usr/share/omarchy/shell/Commons"),
+                             "Ui": Path("/usr/share/omarchy/shell/Ui"),
+                             "Menu": ROOT / "menu-plugin", "Notifications": ROOT / "notifications-plugin",
+                             "Osd": ROOT / "osd-plugin", "Picker": Path("/usr/share/omarchy/shell/plugins/image-picker")}.items():
+            (base / name).symlink_to(source)
+        qml = base / "shell.qml"
+        qml.write_text((ROOT / "scripts/showcase/Desktop.qml").read_text())
+        # No activation directories: portals/accessibility daemons cannot launch
+        # on the private bus and replace the real session's accessibility socket.
+        config = base / "bus.conf"
+        config.write_text(f'''<busconfig><type>session</type><listen>unix:tmpdir={base}</listen>
+<auth>EXTERNAL</auth><policy context="default"><allow own="*"/><allow send_destination="*"/>
+<allow receive_sender="*"/></policy></busconfig>''')
+        bus = subprocess.Popen(["dbus-daemon", "--nofork", "--config-file=" + str(config), "--print-address=1"],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        address = bus.stdout.readline().strip()
+        if not address:
+            raise RuntimeError("Private preview bus did not start")
+        environment = dict(os.environ, HOME=str(home), DBUS_SESSION_BUS_ADDRESS=address,
+                           CYBERPUNK_PREVIEW_ROOT=str(ROOT), OMARCHY_PATH="/usr/share/omarchy",
+                           NO_AT_BRIDGE="1", QT_ACCESSIBILITY="0", OMARCHY_REDUCED_MOTION="0")
+        environment.pop("QT_QPA_PLATFORM", None)
+        environment.pop("QT_SCALE_FACTOR", None)
+        def run(*args):
+            return subprocess.check_output(args, env=environment, text=True, stderr=subprocess.DEVNULL, timeout=15).strip()
+        def ipc(method, *args):
+            return run("qs", "ipc", "-p", str(qml), "call", "showcase", method, *args)
+        def wait(predicate):
+            for _ in range(100):
+                try:
+                    if predicate(): return
+                except (subprocess.CalledProcessError, ValueError): pass
+                time.sleep(.1)
+            raise RuntimeError("Showcase component did not become ready")
+        monitors = json.loads(run("hyprctl", "-j", "monitors"))
+        display = next((entry for entry in monitors if entry.get("focused")), monitors[0])
+        monitor = display["name"]
+        scale = SIZE[0] / (display["width"] / display["scale"])
+        def frame():
+            pixels = subprocess.check_output(["grim", "-s", str(scale), "-t", "ppm", "-o", monitor, "-"], env=environment, timeout=15)
+            with Image.open(io.BytesIO(pixels)) as image:
+                return image.convert("RGB").resize(SIZE, Image.Resampling.LANCZOS)
+        def capture(name):
+            time.sleep(.7)
+            frame().save(OUTPUT / (name + ".png"), optimize=True)
+        def wallpaper(name):
+            ipc("wallpaper", name)
+            wait(lambda: ipc("ready") == "ok")
+        def open_menu(route="root"):
+            ipc("menu", json.dumps({"initialMenu": route}))
+            wait(lambda: json.loads(ipc("health"))["opened"] and json.loads(ipc("health"))["rows"] > 0)
+        log = base / "quickshell.log"
+        with log.open("w") as logging:
+            shell = subprocess.Popen(["qs", "-p", str(qml)], env=environment, stdout=logging, stderr=logging)
+            try:
+                wait(lambda: ipc("ready") == "ok")
+                if os.environ.get("CYBERPUNK_PREVIEW_NOTIFICATIONS_ONLY") == "1":
+                    wallpaper("10.png")
+                    run("notify-send", "-a", "Cyberpunk Showcase", "-t", "30000", "Signal established", "Your desktop, in red and turquoise.")
+                    run("notify-send", "-a", "Cyberpunk Showcase", "-t", "30000", "Transmission received", "Wrapped notification bodies retain native delivery, dismissal, history and action behavior.")
+                    wait(lambda: ipc("notificationCount") == "2")
+                    time.sleep(2)
+                    capture("notifications")
+                    return
+                open_menu()
+                capture("hero")
+                capture("menu")
+                ipc("closeMenu")
+                wallpaper("07.png")
+                open_menu("apps")
+                capture("apps")
+                ipc("closeMenu")
+                wallpaper("09.png")
+                options = ["󰌌\tSUPER + SPACE\tOpen menu", "󰌌\tSUPER + ENTER\tOpen terminal",
+                           "󰌌\tSUPER + L\tLock session", "󰌌\tSUPER + 1\tWorkspace 1",
+                           "󰌌\tSUPER + 2\tWorkspace 2", "󰌌\tSUPER + F\tFullscreen",
+                           "󰌌\tPRINT\tCapture screenshot"]
+                ipc("menu", json.dumps({"mode": "select", "prompt": "Keybindings", "options": options}))
+                wait(lambda: json.loads(ipc("health"))["rows"] > 0)
+                capture("keybindings")
+                ipc("closeMenu")
+                wallpaper("10.png")
+                run("notify-send", "-a", "Cyberpunk Showcase", "-t", "30000", "Signal established", "Your desktop, in red and turquoise.")
+                run("notify-send", "-a", "Cyberpunk Showcase", "-t", "30000", "Transmission received", "Wrapped notification bodies retain native delivery, dismissal, history and action behavior.")
+                wait(lambda: ipc("notificationCount") == "2")
+                time.sleep(2)
+                capture("notifications")
+                run("qs", "ipc", "-p", str(qml), "call", "notifications", "dismissAll")
+                time.sleep(.5)
+                wallpaper("12.png")
+                ipc("osd", json.dumps({"icon": "volume", "value": 72, "duration": 0}))
+                capture("volume")
+                ipc("osd", json.dumps({"icon": "mute", "value": 0, "duration": 0}))
+                capture("mute")
+                ipc("closeOsd")
+                wallpaper("07.png")
+                rows = "\n".join(f"{ROOT / 'theme/backgrounds' / f'{number:02d}.png'}\t{ROOT / 'theme/backgrounds' / f'{number:02d}.png'}" for number in range(1, 14))
+                ipc("picker", json.dumps({"imageRows": rows, "selectedImage": str(ROOT / "theme/backgrounds/07.png"), "showLabels": True}))
+                wait(lambda: ipc("pickerReady") == "ok")
+                capture("wallpapers")
+                ipc("closePicker")
+                wallpaper("06.png")
+                open_menu()
+                def frames():
+                    for tick in range(80):
+                        if tick in (16, 32, 48): ipc("move", "1")
+                        if tick == 56: ipc("filter", "settings")
+                        if tick == 68: ipc("filter", "")
+                        yield frame()
+                        time.sleep(.05)
+                encode_video(frames(), OUTPUT / "menu.mp4", 20)
+            except Exception:
+                print(log.read_text())
+                raise
+            finally:
+                shell.terminate()
+                shell.wait(timeout=10)
+                (OUTPUT / "renderer.log").write_text(log.read_text())
+                bus.terminate()
+                bus.wait(timeout=10)
+                bus.stdout.close()
+                bus.stderr.close()
+    (OUTPUT / "manifest.json").write_text(json.dumps({
+        "kind": "actual component QML captured in a private preview HOME/bus",
+        "wallpapers": {"hero": "06.png", "menu": "06.png", "apps": "07.png", "keybindings": "09.png",
+                       "notifications": "10.png", "volume": "12.png", "mute": "12.png", "wallpapers": "07.png"},
+        "sampleData": "illustrative keybinding rows and notifications; no real user history",
+        "inputs": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+                   for name in ("scripts/showcase/Desktop.qml", "menu-plugin/Menu.qml",
+                                "notifications-plugin/Service.qml", "notifications-plugin/components/NotificationCard.qml",
+                                "osd-plugin/Osd.qml", "theme/colors.toml", "theme/shell.toml")},
+        "wallpaperHashes": {name: hashlib.sha256((ROOT / "theme/backgrounds" / name).read_bytes()).hexdigest()
+                            for name in ("06.png", "07.png", "09.png", "10.png", "12.png")},
+    }, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()

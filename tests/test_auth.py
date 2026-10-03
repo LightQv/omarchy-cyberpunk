@@ -1,6 +1,7 @@
 """Exercise askpass transport and precise Bash stanza ownership without sudo."""
 
 import os
+import json
 from pathlib import Path
 import pty
 import shlex
@@ -104,6 +105,12 @@ class AuthTest(unittest.TestCase):
             source = checkout / "scripts/interactive-sudo.sh"
             source.parent.mkdir()
             shutil.copyfile(PROJECT / "scripts/interactive-sudo.sh", source)
+            shutil.copyfile(PROJECT / "scripts/preferences.py", source.with_name("preferences.py"))
+            preferences = home / ".local/state/omarchy-cyberpunk/preferences.json"
+            preferences.parent.mkdir()
+            choices = dict.fromkeys(("menu", "notifications", "osd", "sudo", "polkit", "lock"), False)
+            choices["sudo"] = True
+            preferences.write_text(json.dumps({"version": 1, "components": choices}))
             bin_dir = home / "bin"
             bin_dir.mkdir()
             fake_sudo = bin_dir / "sudo"
@@ -111,6 +118,7 @@ class AuthTest(unittest.TestCase):
             fake_sudo.chmod(0o700)
             log = home / "sudo-invocations"
             env = dict(os.environ, HOME=directory, WAYLAND_DISPLAY="wayland-test", TEST_LOG=str(log))
+            env["XDG_STATE_HOME"] = str(home / ".local/state")
             env["PATH"] = f"{bin_dir}:/usr/bin"
             script = f"source {shlex.quote(str(source))}; sudo -v; sudo -n true; sudo -S -v"
 
@@ -134,6 +142,11 @@ class AuthTest(unittest.TestCase):
             theme.write_text("osaka-jade\n")
             run()
             self.assertEqual(log.read_text().splitlines()[3:], ["-v|", "-n true|", "-S -v|"])
+            theme.write_text("cyberpunk\n")
+            choices["sudo"] = False
+            preferences.write_text(json.dumps({"version": 1, "components": choices}))
+            run()
+            self.assertEqual(log.read_text().splitlines()[6:], ["-v|", "-n true|", "-S -v|"])
 
 
 if __name__ == "__main__":

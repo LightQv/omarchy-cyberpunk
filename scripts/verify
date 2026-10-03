@@ -3,131 +3,122 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 mode=${1:---check}
-[[ $mode == --check || $mode == --repair || $mode == --removed ]] || die "usage: scripts/verify [--check|--repair|--removed]"
+[[ $# -le 1 && ( $mode == --check || $mode == --repair || $mode == --removed ) ]] || die 'usage: scripts/verify [--check|--repair|--removed]'
 if [[ $mode == --removed ]]; then
-  for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK"; do
+  for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK" "$CLI_LINK"; do
     unoccupied "$path" || die "project path remains or is occupied: $path"
   done
-  ! clone_referenced || die "clone references remain in shell.json"
-  ! polkit_referenced || die "Polkit clone references remain in shell.json"
-  ! notify_referenced || die "notifications clone references remain in shell.json"
-  ! osd_referenced || die "OSD clone references remain in shell.json"
-  ! lock_referenced || die "lock clone references remain in shell.json"
-  [[ ! -e $LOCK_TRIAL && ! -L $LOCK_TRIAL ]] || die "lock trial remains armed"
+  ! clone_referenced || die 'menu clone references remain'
+  ! polkit_referenced || die 'Polkit clone references remain'
+  ! notify_referenced || die 'notifications clone references remain'
+  ! osd_referenced || die 'OSD clone references remain'
+  ! lock_referenced || die 'lock clone references remain'
+  unoccupied "$LOCK_TRIAL" || die 'lock trial remains armed'
   "$PROJECT/scripts/manage-bashrc.py" absent
-  [[ $(current_theme) != cyberpunk ]] || die "Cyberpunk theme remains active"
-  menu_enabled omarchy.menu || die "stock menu is not enabled"
-  menu_enabled omarchy.polkit || die "stock Polkit agent is not enabled"
-  menu_enabled omarchy.notifications || die "stock notifications are not enabled"
-  menu_enabled omarchy.osd || die "stock OSD is not enabled"
-  menu_enabled omarchy.lock || die "stock lock is not enabled"
-  wait_for_menu || die "stock menu ping failed"
-  printf 'Cyberpunk: project removed; stock menu operational.\n'
+  [[ $(current_theme) != cyberpunk ]] || die 'Cyberpunk theme remains active'
+  for component in menu polkit notifications osd lock; do
+    menu_enabled "omarchy.$component" || die "stock $component is not enabled"
+  done
+  wait_for_menu || die 'stock menu ping failed'
+  printf 'Cyberpunk: project removed; native services operational; preferences retained.\n'
   exit 0
 fi
-installed || die "project links/hook are missing or no longer owned by this project"
-"$PROJECT/scripts/render-palette" --check || die "Cyberpunk palette output is stale"
+installed || die 'project links/hook are missing or no longer owned by this project'
+"$PROJECT/scripts/render-palette" --check || die 'Cyberpunk palette output is stale'
+if [[ $mode == --repair ]]; then
+  install_cli
+  python -B "$PROJECT/scripts/preferences.py" init
+  exec 9>"$LOCK"
+  flock 9
+else
+  owned_link "$CLI_LINK" "$CLI_SOURCE" || die 'command link missing or changed; run scripts/cyberpunk repair'
+fi
 
-exec 9>"$LOCK"
-flock 9
+components=(menu notifications osd polkit)
+ids=("$PLUGIN_ID" "$NOTIFY_ID" "$OSD_ID" "$POLKIT_ID")
+references=(clone_referenced notify_referenced osd_referenced polkit_referenced)
 for attempt in 1 2 3 4; do
   selected=$(current_theme)
-  if [[ $selected == cyberpunk ]]; then
-    if ! menu_enabled "$PLUGIN_ID"; then
-      [[ $mode == --repair ]] || die "Cyberpunk selected but menu clone is inactive"
-      omarchy plugin enable "$PLUGIN_ID"
-    fi
-    menu_enabled "$PLUGIN_ID" || die "clone did not activate"
-    if ! menu_enabled "$POLKIT_ID"; then
-      [[ $mode == --repair ]] || die "Cyberpunk selected but Polkit clone is inactive"
-      # The Polkit agent registers on D-Bus at component creation. Stop the
-      # stock agent first, or the new one loses the registration race.
-      if menu_enabled omarchy.polkit; then omarchy plugin disable omarchy.polkit; fi
-      if ! omarchy plugin enable "$POLKIT_ID"; then
-        omarchy plugin enable omarchy.polkit || true
-        die "Polkit clone failed; stock agent restored"
+  preferences=$(python -B "$PROJECT/scripts/preferences.py" read) || die 'invalid component preferences'
+  # Never replace a different user clone while restoring a source service.
+  plugins=$(omarchy plugin list --json)
+  jq -e '[.[] | select(.enabled == true)
+    | select(.clonedFrom == "omarchy.menu" or .clonedFrom == "omarchy.notifications"
+      or .clonedFrom == "omarchy.osd" or .clonedFrom == "omarchy.polkit" or .clonedFrom == "omarchy.lock")
+    | select(.id != "lightqv.cyberpunk-menu" and .id != "lightqv.cyberpunk-notifications"
+      and .id != "lightqv.cyberpunk-osd" and .id != "lightqv.cyberpunk-polkit" and .id != "lightqv.cyberpunk-lock")]
+    | length == 0' <<<"$plugins" >/dev/null || die 'another active clone owns a native service; inspect before repair'
+  for index in "${!components[@]}"; do
+    component=${components[index]}; id=${ids[index]}; referenced=${references[index]}
+    source="omarchy.$component"
+    wanted=false
+    [[ $selected == cyberpunk && $(jq -r --arg key "$component" '.[$key]' <<<"$preferences") == true ]] && wanted=true
+    if [[ $wanted == true ]]; then
+      if ! menu_enabled "$id" || menu_enabled "$source"; then
+        [[ $mode == --repair ]] || die "$component disagrees with saved preference"
+        if [[ $component == menu ]]; then omarchy menu close >/dev/null 2>&1 || true; fi
+        if [[ $component == polkit || $component == notifications ]]; then
+          if menu_enabled "$source"; then omarchy plugin disable "$source"; fi
+        fi
+        if ! omarchy plugin enable "$id"; then
+          omarchy plugin enable "$source" || true
+          die "$component activation failed; requested native service"
+        fi
       fi
-    fi
-    menu_enabled "$POLKIT_ID" || die "Polkit clone did not activate"
-    if ! menu_enabled "$NOTIFY_ID"; then
-      [[ $mode == --repair ]] || die "Cyberpunk selected but notifications clone is inactive"
-      if menu_enabled omarchy.notifications; then omarchy plugin disable omarchy.notifications; fi
-      if ! omarchy plugin enable "$NOTIFY_ID"; then
-        omarchy plugin enable omarchy.notifications || true
-        die "notifications clone failed; stock service restored"
+      menu_enabled "$id" && ! menu_enabled "$source" || die "$component did not activate exclusively"
+    else
+      if "$referenced" || menu_enabled "$id" || ! menu_enabled "$source"; then
+        [[ $mode == --repair ]] || die "$component disagrees with saved preference or selected theme"
+        if [[ $component == menu ]]; then omarchy menu close >/dev/null 2>&1 || true; fi
+        if "$referenced" || menu_enabled "$id"; then omarchy plugin disable "$id"; fi
+        if ! menu_enabled "$source"; then omarchy plugin enable "$source"; fi
       fi
+      ! "$referenced" && menu_enabled "$source" && ! menu_enabled "$id" || die "native $component did not restore"
     fi
-    menu_enabled "$NOTIFY_ID" || die "notifications clone did not activate"
-    ! menu_enabled omarchy.notifications || die "stock notifications still active beside clone"
-    if ! menu_enabled "$OSD_ID"; then
-      [[ $mode == --repair ]] || die "Cyberpunk selected but OSD clone is inactive"
-      omarchy plugin enable "$OSD_ID" || die "OSD clone failed to activate"
-    fi
-    menu_enabled "$OSD_ID" || die "OSD clone did not activate"
-    ! menu_enabled omarchy.osd || die "stock OSD still active beside clone"
-  else
-    if osd_referenced || ! menu_enabled omarchy.osd; then
-      [[ $mode == --repair ]] || die "stock theme selected but OSD clone is active"
-      if osd_referenced; then omarchy plugin disable "$OSD_ID"; fi
-      if ! menu_enabled omarchy.osd; then omarchy plugin enable omarchy.osd; fi
-    fi
-    ! osd_referenced || die "OSD clone references remain after disabling"
-    menu_enabled omarchy.osd || die "stock OSD did not restore"
-    if notify_referenced || ! menu_enabled omarchy.notifications; then
-      [[ $mode == --repair ]] || die "stock theme selected but notifications clone is active"
-      if notify_referenced; then omarchy plugin disable "$NOTIFY_ID"; fi
-      if ! menu_enabled omarchy.notifications; then omarchy plugin enable omarchy.notifications; fi
-    fi
-    ! notify_referenced || die "notifications clone references remain after disabling"
-    menu_enabled omarchy.notifications || die "stock notifications did not restore"
-    if polkit_referenced || ! menu_enabled omarchy.polkit; then
-      [[ $mode == --repair ]] || die "stock theme selected but Polkit clone is active"
-      if polkit_referenced; then omarchy plugin disable "$POLKIT_ID"; fi
-      # Restore only after the cloned agent has been destroyed.
-      if ! menu_enabled omarchy.polkit; then omarchy plugin enable omarchy.polkit; fi
-    fi
-    ! polkit_referenced || die "Polkit clone references remain after disabling"
-    menu_enabled omarchy.polkit || die "stock Polkit agent did not restore"
-    if clone_referenced || ! menu_enabled omarchy.menu; then
-      [[ $mode == --repair ]] || die "stock theme selected but menu clone is active"
-      omarchy menu close >/dev/null 2>&1 || true
-      omarchy plugin disable "$PLUGIN_ID"
-    fi
-    ! clone_referenced || die "clone references remain after disabling"
-    menu_enabled omarchy.menu || die "stock menu did not restore"
-  fi
+  done
+
   desired_lock=omarchy.lock
-  [[ $selected == cyberpunk ]] && lock_allowed && lock_enabled && desired_lock=$LOCK_ID
+  [[ $selected == cyberpunk && $(jq -r .lock <<<"$preferences") == true ]] && lock_allowed && desired_lock=$LOCK_ID
   if [[ $desired_lock == "$LOCK_ID" ]]; then
-    needs_lock_switch=false
+    "$PROJECT/scripts/build-lock" --check || die 'custom lock compatibility pin changed; review upstream before activation'
+  fi
+  needs_lock_switch=false
+  if [[ $desired_lock == "$LOCK_ID" ]]; then
     menu_enabled "$LOCK_ID" || needs_lock_switch=true
     menu_enabled omarchy.lock && needs_lock_switch=true
   else
-    needs_lock_switch=false
     lock_referenced && needs_lock_switch=true
+    menu_enabled "$LOCK_ID" && needs_lock_switch=true
     menu_enabled omarchy.lock || needs_lock_switch=true
   fi
   if [[ $needs_lock_switch == true ]]; then
-    [[ $mode == --repair ]] || die "active lock disagrees with selected theme or safe mode"
-    if lock_unlocked; then
-      if ! omarchy plugin enable "$desired_lock"; then
-        omarchy plugin enable omarchy.lock || true
-        die "lock transition failed; requested stock lock"
+    if [[ $mode == --repair ]]; then
+      if lock_unlocked; then
+        if ! omarchy plugin enable "$desired_lock"; then
+          omarchy plugin enable omarchy.lock || true
+          die 'lock transition failed; requested stock lock'
+        fi
+      else
+        "$PROJECT/scripts/queue-lock-transition"
       fi
     else
-      "$PROJECT/scripts/queue-lock-transition"
+      lock_state=$(omarchy-shell lock status) || die 'lock status unavailable'
+      jq -e '.locked == true or .requested == true or .sessionLocked == true or .secure == true' <<<"$lock_state" >/dev/null &&
+        systemctl --user is-active --quiet cyberpunk-lock-transition.service || die 'active lock disagrees with policy; run cyberpunk repair'
+      printf 'Cyberpunk: lock transition pending until unlock.\n'
     fi
   fi
   if menu_enabled "$desired_lock"; then
     if [[ $desired_lock == omarchy.lock ]]; then
-      ! lock_referenced || die "lock clone references remain after stock restore"
+      ! lock_referenced && ! menu_enabled "$LOCK_ID" || die 'custom lock remains beside native lock'
     else
-      ! menu_enabled omarchy.lock || die "stock lock still active beside clone"
+      ! menu_enabled omarchy.lock || die 'native lock remains beside custom lock'
     fi
-    omarchy-shell lock status | jq -e '.passwordPam == true' >/dev/null || die "selected lock PAM is not ready"
   fi
-  [[ $(current_theme) == "$selected" ]] && break
-  (( attempt < 4 )) || die "theme kept changing; rerun scripts/verify --repair"
+  omarchy-shell lock status | jq -e '.passwordPam == true' >/dev/null || die 'lock PAM is not ready'
+  latest=$(python -B "$PROJECT/scripts/preferences.py" read) || die 'invalid component preferences'
+  [[ $(current_theme) == "$selected" && $latest == "$preferences" ]] && break
+  (( attempt < 4 )) || die 'theme/preferences kept changing; rerun cyberpunk repair'
 done
-wait_for_menu || die "menu ping failed"
-printf 'Cyberpunk: %s theme and menu agree (%s).\n' "$mode" "$selected"
+wait_for_menu || die 'menu ping failed'
+printf 'Cyberpunk: %s selected theme and saved component preferences agree (%s).\n' "$mode" "$selected"

@@ -8,7 +8,8 @@ lifecycle_lock
 lock_unlocked || die "uninstall only while the stock or Cyberpunk lock is unlocked"
 cleanup_lock_pref() {
   if ! unoccupied "$LOCK_PREF"; then
-    lock_enabled || [[ $(<"$LOCK_PREF") == disabled ]] || die "invalid lock preference"
+    [[ -f $LOCK_PREF && ! -L $LOCK_PREF && $(stat -c %u "$LOCK_PREF") == "$EUID" ]] || die 'untrusted legacy lock preference'
+    [[ $(<"$LOCK_PREF") == enabled || $(<"$LOCK_PREF") == disabled ]] || die 'invalid legacy lock preference'
     rm -- "$LOCK_PREF"
   fi
   local preference_lock="$STATE_DIR/lock-preference.lock"
@@ -19,8 +20,8 @@ cleanup_lock_pref() {
     rm -- "$preference_lock"
   fi
 }
-paths=("$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK")
-sources=("$THEME_SOURCE" "$PLUGIN_SOURCE" "$POLKIT_SOURCE" "$NOTIFY_SOURCE" "$OSD_SOURCE" "$LOCK_SOURCE" "$HOOK_SOURCE" "$BOOT_SOURCE")
+paths=("$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK" "$CLI_LINK")
+sources=("$THEME_SOURCE" "$PLUGIN_SOURCE" "$POLKIT_SOURCE" "$NOTIFY_SOURCE" "$OSD_SOURCE" "$LOCK_SOURCE" "$HOOK_SOURCE" "$BOOT_SOURCE" "$CLI_SOURCE")
 plugin_paths=("$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK")
 plugin_sources=("$PLUGIN_SOURCE" "$POLKIT_SOURCE" "$NOTIFY_SOURCE" "$OSD_SOURCE" "$LOCK_SOURCE")
 plugin_ids=("$PLUGIN_ID" "$POLKIT_ID" "$NOTIFY_ID" "$OSD_ID" "$LOCK_ID")
@@ -138,6 +139,10 @@ if ! unoccupied "$THEME_LINK"; then
   rm -- "$THEME_LINK"
 fi
 "$PROJECT/scripts/manage-bashrc.py" remove
+if ! unoccupied "$CLI_LINK"; then
+  owned_link "$CLI_LINK" "$CLI_SOURCE" || die 'command path changed during removal'
+  rm -- "$CLI_LINK"
+fi
 "$PROJECT/scripts/verify" --removed
 cleanup_lock_pref
-printf 'Cyberpunk: removed project links/hook; stock menu restored. Baseline backup retained.\n'
+printf 'Cyberpunk: removed integration; native services restored. Preferences and baseline retained.\n'

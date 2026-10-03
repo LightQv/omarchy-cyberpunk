@@ -23,6 +23,12 @@ theme = home / ".local/state/omarchy/current/theme.name"
 control = json.loads((home / "control.json").read_text())
 args = sys.argv[1:]
 command = " ".join(args)
+binary = pathlib.Path(sys.argv[0]).name
+if binary == "systemctl":
+    sys.exit(0 if (home / "transition-queued").exists() else 1)
+if binary == "systemd-run":
+    (home / "transition-queued").touch()
+    sys.exit(0)
 if command == control.get("fail"):
     sys.exit(23)
 c = json.loads(config.read_text())
@@ -81,6 +87,8 @@ elif args[:2] in (["plugin", "enable"], ["plugin", "disable"]):
     save()
 elif args[:2] == ["plugin", "remove"]:
     (home / ".config/omarchy/plugins" / args[2]).unlink()
+elif args[:3] == ["theme", "bg", "set"]:
+    (home / "selected-background").write_text(args[3])
 elif args[:2] == ["theme", "set"]:
     theme.write_text(args[2] + "\n")
     if control.get("fail_after_theme"):
@@ -113,8 +121,8 @@ class LifecycleTest(unittest.TestCase):
             (self.project / "scripts" / script).write_text("#!/bin/bash\nexit 0\n")
         art = self.project / "theme/backgrounds"
         art.mkdir()
-        for name in ("01-lucy.png", "03-night-city.jpg"):
-            (art / name).touch()
+        for number in range(1, 14):
+            (art / f"{number:02d}.png").touch()
         self.home = base / "home"
         self.config = self.home / ".config/omarchy/shell.json"
         self.config.parent.mkdir(parents=True)
@@ -133,13 +141,14 @@ class LifecycleTest(unittest.TestCase):
         self.control.write_text("{}")
         binary = base / "bin"
         binary.mkdir()
-        for name in ("omarchy", "omarchy-shell", "omarchy-hyprland-session-locked"):
+        for name in ("omarchy", "omarchy-shell", "omarchy-hyprland-session-locked", "systemctl", "systemd-run"):
             path = binary / name
             path.write_text(FAKE)
             path.chmod(0o755)
         runtime = base / "runtime"
         runtime.mkdir()
         self.env = dict(os.environ, HOME=str(self.home), XDG_RUNTIME_DIR=str(runtime),
+                        XDG_STATE_HOME=str(self.home / ".local/state"),
                         PATH=f"{binary}:{os.environ['PATH']}", TEST_PROJECT=str(self.project),
                         PYTHONDONTWRITEBYTECODE="1")
 
@@ -163,6 +172,9 @@ class LifecycleTest(unittest.TestCase):
         backup = self.home / ".local/state/omarchy-cyberpunk-backup"
         self.assertFalse(backup.exists())
         self.run_script("install-dev")
+        self.assertTrue(all(value is False for value in self.preferences().values()))
+        self.assertEqual((self.home / "selected-background").read_text(),
+                         str(self.home / ".local/state/omarchy/current/theme/backgrounds/01.png"))
         self.assertEqual(json.loads((backup / "shell.json").read_text()), self.original)
         self.assertEqual((backup / "bashrc").stat().st_mode & 0o777, 0o600)
         baseline = (backup / "bashrc").read_bytes()
@@ -173,6 +185,129 @@ class LifecycleTest(unittest.TestCase):
         self.assertEqual((backup / "bashrc").read_bytes(), baseline)
         self.run_script("uninstall-dev")
         self.removed()
+
+    def preferences(self):
+        return json.loads((self.home / ".local/state/omarchy-cyberpunk/preferences.json").read_text())["components"]
+
+    def plugins(self):
+        result = subprocess.check_output(["omarchy", "plugin", "list", "--json"], env=self.env, text=True)
+        return {entry["id"]: entry["enabled"] for entry in json.loads(result)}
+
+    def test_public_cli_individual_components_and_saved_theme_round_trip(self):
+        self.run_script("install-dev")
+        command = self.home / ".local/bin/cyberpunk"
+        help_result = subprocess.run([str(command), "--help"], cwd=self.home, env=self.env, capture_output=True, text=True)
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        for component in ("menu", "notifications", "osd", "sudo", "polkit", "lock"):
+            with self.subTest(component=component):
+                self.run_script("cyberpunk", "enable", component)
+                self.assertTrue(self.preferences()[component])
+                for kind in KINDS:
+                    self.assertEqual(self.plugins()["lightqv.cyberpunk-" + kind], kind == component and kind != "lock")
+                self.run_script("cyberpunk", "disable", component)
+                self.assertFalse(self.preferences()[component])
+        self.run_script("cyberpunk", "enable", "menu")
+        self.run_script("cyberpunk", "enable", "osd")
+        before = self.preferences()
+        subprocess.run(["omarchy", "theme", "set", "osaka-jade"], env=self.env, check=True, capture_output=True)
+        self.assertTrue(all(not self.plugins()["lightqv.cyberpunk-" + kind] for kind in KINDS))
+        self.assertEqual(self.preferences(), before)
+        subprocess.run(["omarchy", "theme", "set", "cyberpunk"], env=self.env, check=True, capture_output=True)
+        self.assertEqual(self.preferences(), before)
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-menu"])
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-osd"])
+        self.assertFalse(self.plugins()["lightqv.cyberpunk-notifications"])
+
+    def test_all_preferences_persist_through_removal_and_reinstall(self):
+        self.run_script("install-dev")
+        self.run_script("cyberpunk", "enable", "all")
+        self.assertTrue(all(self.preferences().values()))
+        self.assertTrue(self.plugins()["omarchy.lock"])
+        self.run_script("cyberpunk", "disable", "all")
+        self.assertTrue(all(not value for value in self.preferences().values()))
+        self.run_script("cyberpunk", "enable", "notifications")
+        choices = self.preferences()
+        self.run_script("cyberpunk", "uninstall")
+        self.removed()
+        self.assertFalse((self.home / ".local/bin/cyberpunk").exists())
+        self.assertEqual(self.preferences(), choices)
+        self.run_script("install-dev")
+        self.assertEqual(self.preferences(), choices)
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-notifications"])
+        self.assertFalse(self.plugins()["lightqv.cyberpunk-menu"])
+
+    def test_legacy_migration_preserves_current_setup_and_lock_choice(self):
+        self.run_script("install-dev")
+        for component in ("menu", "notifications", "osd", "polkit"):
+            subprocess.run(["omarchy", "plugin", "enable", "lightqv.cyberpunk-" + component], env=self.env, check=True, capture_output=True)
+        legacy = self.project / ".state/lock-preference"
+        legacy.write_text("disabled\n")
+        (self.home / ".local/state/omarchy-cyberpunk/preferences.json").unlink()
+        (self.home / ".local/bin/cyberpunk").unlink()
+        before = self.config.read_bytes()
+        self.run_script("cyberpunk", "repair")
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertEqual(self.preferences(), dict(menu=True, notifications=True, osd=True, sudo=True, polkit=True, lock=False))
+        self.assertTrue((self.project / ".state/safe-mode").exists())
+
+    def test_status_and_check_are_read_only_and_repair_preserves_choices(self):
+        self.run_script("install-dev")
+        def snapshot():
+            return {str(path): (path.read_bytes(), path.stat().st_mtime_ns) for root in (self.home, Path(self.env["XDG_RUNTIME_DIR"])) for path in root.rglob("*") if path.is_file() and not path.is_symlink()}
+        before = snapshot()
+        for alias in ("--help", "-h", "help"):
+            output = self.run_script("cyberpunk", alias).stdout
+            self.assertIn("List toggleable components", output)
+            self.assertIn("cyberpunk enable all", output)
+        output = self.run_script("cyberpunk", "list").stdout
+        self.assertEqual([line.split()[0] for line in output.splitlines() if line.strip()],
+                         ["COMPONENT", "menu", "notifications", "osd", "sudo", "polkit", "lock", "all"])
+        self.assertIn("Volume/mute", output)
+        self.run_script("cyberpunk", "list", "menu", success=False)
+        self.run_script("cyberpunk", "status")
+        self.run_script("cyberpunk", "check")
+        self.assertEqual(snapshot(), before)
+        self.control.write_text(json.dumps({"fail": "plugin enable lightqv.cyberpunk-menu"}))
+        self.run_script("cyberpunk", "enable", "menu", success=False)
+        self.assertTrue(self.preferences()["menu"])
+        self.control.write_text("{}")
+        self.run_script("cyberpunk", "check", success=False)
+        choices = self.preferences()
+        self.run_script("cyberpunk", "repair")
+        self.assertEqual(self.preferences(), choices)
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-menu"])
+
+    def test_lock_switch_is_deferred_without_destroying_secure_surface(self):
+        self.run_script("install-dev")
+        (self.project / ".state/safe-mode").unlink()
+        self.run_script("cyberpunk", "enable", "lock")
+        self.control.write_text(json.dumps({"locked": True}))
+        self.run_script("cyberpunk", "disable", "lock")
+        self.assertFalse(self.preferences()["lock"])
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-lock"])
+        self.assertFalse(self.plugins()["omarchy.lock"])
+        self.assertTrue((self.home / "transition-queued").exists())
+        self.run_script("cyberpunk", "check")
+        self.control.write_text("{}")
+        self.run_script("wait-unlocked")
+        self.assertTrue(self.plugins()["omarchy.lock"])
+        self.assertFalse(self.plugins()["lightqv.cyberpunk-lock"])
+
+    def test_invalid_preferences_and_foreign_cli_link_are_protected(self):
+        self.run_script("install-dev")
+        preferences = self.home / ".local/state/omarchy-cyberpunk/preferences.json"
+        preferences.write_text('{"version": 1, "components": {"sudo": "yes"}}')
+        before = preferences.read_bytes()
+        configuration = self.config.read_bytes()
+        self.run_script("cyberpunk", "enable", "all", success=False)
+        self.assertEqual(preferences.read_bytes(), before)
+        self.assertEqual(self.config.read_bytes(), configuration)
+        link = self.home / ".local/bin/cyberpunk"
+        link.unlink()
+        link.symlink_to(self.bashrc)
+        self.run_script("cyberpunk", "repair", success=False)
+        self.run_script("uninstall-dev", success=False)
+        self.assertEqual(link.readlink(), self.bashrc)
 
     def test_install_failure_rolls_back_after_theme_change(self):
         self.control.write_text(json.dumps({"fail_after_theme": True}))
@@ -192,6 +327,7 @@ class LifecycleTest(unittest.TestCase):
 
     def test_missing_links_and_stale_clone_references(self):
         self.run_script("install-dev")
+        self.run_script("cyberpunk", "enable", "all")
         for path in (self.home / ".config/omarchy/plugins").iterdir():
             path.unlink()
         (self.home / ".config/omarchy/themes/cyberpunk").unlink()

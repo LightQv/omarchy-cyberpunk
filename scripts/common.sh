@@ -18,6 +18,9 @@ OSD_SOURCE="$PROJECT/osd-plugin"
 LOCK_SOURCE="$PROJECT/lock-plugin"
 HOOK_SOURCE="$PROJECT/hooks/theme-set.d/cyberpunk-menu"
 BOOT_SOURCE="$PROJECT/hooks/post-boot.d/cyberpunk-menu"
+CLI_LINK="$HOME/.local/bin/cyberpunk"
+CLI_SOURCE="$PROJECT/scripts/cyberpunk"
+PREFERENCES="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-cyberpunk/preferences.json"
 PLUGIN_ID=lightqv.cyberpunk-menu
 POLKIT_ID=lightqv.cyberpunk-polkit
 NOTIFY_ID=lightqv.cyberpunk-notifications
@@ -53,7 +56,21 @@ installed() {
     "$PROJECT/scripts/manage-bashrc.py" check
 }
 current_theme() { tr -d '\n' <"$HOME/.local/state/omarchy/current/theme.name"; }
+install_cli() {
+  if ! unoccupied "$CLI_LINK"; then
+    owned_link "$CLI_LINK" "$CLI_SOURCE" || die "command path occupied: $CLI_LINK"
+    return
+  fi
+  mkdir -p "$(dirname "$CLI_LINK")"
+  ln -s "$CLI_SOURCE" "$CLI_LINK"
+}
 lock_enabled() {
+  if ! unoccupied "$PREFERENCES"; then
+    local values
+    values=$(python -B "$PROJECT/scripts/preferences.py" read) || die 'invalid component preferences'
+    [[ $(jq -r .lock <<<"$values") == true ]]
+    return
+  fi
   if unoccupied "$LOCK_PREF"; then return 0; fi
   [[ -f $LOCK_PREF && ! -L $LOCK_PREF && $(stat -c %u "$LOCK_PREF") == "$EUID" ]] || die "untrusted lock preference"
   case $(<"$LOCK_PREF") in enabled) return 0 ;; disabled) return 1 ;; *) die "invalid lock preference" ;; esac

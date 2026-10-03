@@ -2,16 +2,20 @@
 """Preview lock, sudo and Polkit without invoking authentication services."""
 
 import os
+import argparse
+import hashlib
+import json
 import sys
 import tempfile
 import time
 from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["QT_SCALE_FACTOR"] = "1"
 
 from PIL import Image, ImageFilter, ImageOps
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QImage, QPainter
 from PySide6.QtQuick import QQuickView
 from PySide6.QtWidgets import QApplication
 
@@ -21,6 +25,10 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "preview"
 SIZE = (1920, 1080)
 FPS = 50
+INPUTS = ("scripts/preview-final", "scripts/preview_video.py", "lock-plugin/ReviewScene.qml",
+          "lock-plugin/LockHud.qml", "lock-plugin/AuthLayout.js", "lock-plugin/SignalFault.qml",
+          "lock-plugin/SignalRhythm.qml", "lock-plugin/PreviewPalette.js",
+          "askpass/askpass.py", "askpass/FaultBackdrop.qml")
 
 
 def qt_image(image):
@@ -55,7 +63,7 @@ def render_scene(app, polkit, blurred, sharp):
         raise RuntimeError("Could not load the offline lock/Polkit review scene")
     scene = view.rootObject()
     scene.setProperty("polkitMode", polkit)
-    scene.setProperty("reviewUserName", os.environ.get("USER") or "LOCAL USER")
+    scene.setProperty("reviewUserName", "LOCAL USER")
     scene.setProperty("blurredSource", QUrl.fromLocalFile(str(blurred)))
     scene.setProperty("sharpSource", QUrl.fromLocalFile(str(sharp)))
     view.show()
@@ -113,7 +121,13 @@ def render_sudo(app, sharp):
         widget.sync_fault_frame()
         app.processEvents()
         widget.repaint()
-        return qt_image(widget.grab().toImage())
+        image = widget.grab().toImage()
+        # Offscreen QWidget grabs composite the opaque QQuickWidget after the
+        # parent's paint event. Restore its actual header painter above that FBO.
+        painter = QPainter(image)
+        widget._paint_header(painter)
+        painter.end()
+        return qt_image(image)
 
     still = frame(1)
     still.save(OUTPUT / "sudo.png")
@@ -135,19 +149,46 @@ def render_sudo(app, sharp):
 
 
 def main():
+    global OUTPUT
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("lock", "sudo", "polkit"):
+        parser.add_argument(f"--{name}-wallpaper", default="01.png", metavar="FILE.png")
+    args = parser.parse_args()
+    wallpapers = {}
+    for name in ("lock", "sudo", "polkit"):
+        path = (ROOT / "theme/backgrounds" / getattr(args, name + "_wallpaper")).resolve()
+        if path.parent != (ROOT / "theme/backgrounds").resolve() or not path.is_file():
+            parser.error(f"{name} wallpaper must be a file in theme/backgrounds")
+        wallpapers[name] = path
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    wallpaper = ROOT / "theme/backgrounds/01-lucy.png"
-    with tempfile.TemporaryDirectory(dir="/tmp/opencode") as directory:
-        sharp = Path(directory) / "sharp.png"
-        blurred = Path(directory) / "blurred.png"
-        with Image.open(wallpaper) as image:
-            original = ImageOps.fit(image.convert("RGB"), SIZE, method=Image.Resampling.LANCZOS)
-        original.save(sharp)
-        original.filter(ImageFilter.GaussianBlur(9)).save(blurred)
+    destination = OUTPUT
+    os.environ["USER"] = "LOCAL USER"
+    with tempfile.TemporaryDirectory(prefix=".render-", dir=destination) as directory:
+        OUTPUT = Path(directory)
         app = QApplication([])
-        render_scene(app, False, blurred, sharp)
-        render_scene(app, True, blurred, sharp)
-        render_sudo(app, sharp)
+        for name, wallpaper in wallpapers.items():
+            sharp = OUTPUT / "sharp.png"
+            blurred = OUTPUT / "blurred.png"
+            with Image.open(wallpaper) as image:
+                original = ImageOps.fit(image.convert("RGB"), SIZE, method=Image.Resampling.LANCZOS)
+            original.save(sharp)
+            original.filter(ImageFilter.GaussianBlur(9)).save(blurred)
+            if name == "sudo":
+                render_sudo(app, sharp)
+            else:
+                render_scene(app, name == "polkit", blurred, sharp)
+        manifest = {
+            "version": 1, "kind": "offline authentication appearance; no PAM or Polkit registration",
+            "wallpapers": {name: {"file": str(path.relative_to(ROOT)),
+                                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                           for name, path in wallpapers.items()},
+            "inputs": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in INPUTS},
+        }
+        for name in wallpapers:
+            for extension in ("png", "mp4"):
+                (OUTPUT / f"{name}.{extension}").replace(destination / f"{name}.{extension}")
+        (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    OUTPUT = destination
 
 
 if __name__ == "__main__":

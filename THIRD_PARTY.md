@@ -18,18 +18,17 @@
   its native payload parsing, status types, and timer behavior.
 - `askpass/askpass.py`, the Bash integration, and the red/turquoise authentication
   layout are original. They require the already-installed PySide6 package.
-- `theme/backgrounds/01-lucy.png`: the user's requested Lucy/Night City image
-  from [CyberArch-Shell `assets/img/lucy_wallpaper.png`](https://github.com/ARCANGEL0/CyberArch-Shell/blob/master/assets/img/lucy_wallpaper.png),
-  1672×941. The upstream project declares no image redistribution license.
-  Kept on this machine only and excluded from Git; the project's download helper
-  records its source and exact checksum without claiming redistribution rights.
-- `theme/backgrounds/03-night-city.jpg`: CD PROJEKT RED's [official Phantom
-  Liberty screenshot](https://cdn-l-cyberpunk.cdprojektred.com/cyberpunk2077/phantom-liberty/gallery-screenshot-03@2x.jpg),
-  2270×1280. CDPR's fan-content guideline explicitly discusses turning game
-  screenshots into wallpapers. Kept on this machine and excluded from Git.
-- `theme/preview.png`: a derived thumbnail of the local Lucy artwork; also
-  excluded from Git. `scripts/fetch-wallpapers` reproducibly prepares the two
-  sources for personal use when missing.
+- `theme/backgrounds/01.png` through `13.png`: generated wallpapers supplied by
+  the project author from their local `Documents/cyberpunk_wallpapers` collection.
+  Original files are included without resizing or recompression, each 1672×941.
+  Numbering defines the picker order; `01.png` is the default artwork. These
+  replace the former CyberArch Lucy image and official CDPR screenshot placeholders.
+- `theme/preview.png`: a bundled 900×506 thumbnail derived from `01.png`.
+- `docs/media/`: curated current component captures and offline auth appearance
+  demos using the author's `06`, `07`, `09`, `10` and `12` wallpapers. Desktop
+  captures use the actual component QML and illustrative messages/shortcut rows
+  in a private preview session. Auth demos do not register PAM/Polkit services or
+  use real credentials. The media manifest records inputs and published hashes.
 - `theme/colors.toml` and `theme/shell.toml`: original red/turquoise palette and
   styles; no copyrighted game assets are included.
 - `lock-plugin/Service.qml` and `StockLockView.qml`: generated from the pinned

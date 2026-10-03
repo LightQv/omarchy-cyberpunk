@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "desktop": {
+    "kind": "actual component QML captured in a private preview HOME/bus",
+    "wallpapers": {
+      "hero": "06.png",
+      "menu": "06.png",
+      "apps": "07.png",
+      "keybindings": "09.png",
+      "notifications": "10.png",
+      "volume": "12.png",
+      "mute": "12.png",
+      "wallpapers": "07.png"
+    },
+    "sampleData": "illustrative keybinding rows and notifications; no real user history",
+    "inputs": {
+      "scripts/showcase/Desktop.qml": "222f9656fc9359a30d0566c198585dbd485fa39116dc645a22e222b4d697e2b4",
+      "menu-plugin/Menu.qml": "65a4a114ee81bb4d771281c9d778f4c800c7e78d55cc4587fe655e4770f5d36d",
+      "notifications-plugin/Service.qml": "5186c5b9e40fdf040714cdde80e38c6df9eb8638a444dc79993d5f2bed14dbef",
+      "notifications-plugin/components/NotificationCard.qml": "8c554824b262d9cd645b3c8fcb9663e36f9d6ca3b92ba49dbcf075ccf58bce17",
+      "osd-plugin/Osd.qml": "59c9505f0adc83152a54b8dac3d5d6eb83d4e654c829f83ba6fec497df70deb1",
+      "theme/colors.toml": "6c8251d73c072ea7fbf2d8f4d201a148dbfb979890b94f9bafa4c3120645ab18",
+      "theme/shell.toml": "f4b9166c1776f39a003dbe4d5c65b0f809240f24b90c06cc7d2339f0fda7f001"
+    },
+    "wallpaperHashes": {
+      "06.png": "da241207e3b5078b3691c1f60460894713af6ec3eb674c070c987986ebead233",
+      "07.png": "546012d4329fbfc4199af40aa5f102f5f508d7269bf87c930ec02d393c10295b",
+      "09.png": "7d39dde7ebf390b150c55ba24c921e218fe3d54b98178acef7fca6937cd869b8",
+      "10.png": "260c1e44a74793f491ddf0baacaf472fcf54be44cf2520300004cbf137379e37",
+      "12.png": "2d0a49b06003310a7ec35b08da5b96356c3f6d23d590d907f58e2ff48dc457fb"
+    }
+  },
+  "auth": {
+    "version": 1,
+    "kind": "offline authentication appearance; no PAM or Polkit registration",
+    "wallpapers": {
+      "lock": {
+        "file": "theme/backgrounds/12.png",
+        "sha256": "2d0a49b06003310a7ec35b08da5b96356c3f6d23d590d907f58e2ff48dc457fb"
+      },
+      "sudo": {
+        "file": "theme/backgrounds/09.png",
+        "sha256": "7d39dde7ebf390b150c55ba24c921e218fe3d54b98178acef7fca6937cd869b8"
+      },
+      "polkit": {
+        "file": "theme/backgrounds/10.png",
+        "sha256": "260c1e44a74793f491ddf0baacaf472fcf54be44cf2520300004cbf137379e37"
+      }
+    },
+    "inputs": {
+      "scripts/preview-final": "7328d08225222261ae62e8028c901b8e247b38c6b178209845dcb7356f42ee2b",
+      "scripts/preview_video.py": "4f1d0dccd4e88637ac96c7e87fc818d08e1696dee84b81954618f09fc3496b18",
+      "lock-plugin/ReviewScene.qml": "cdc4849b8a438c32a917ad0e55e9c2757dd736545e325ad0db0fffabc405bb8a",
+      "lock-plugin/LockHud.qml": "6db3da9a368993f3539ccbbf7a057e154fbcf5c621f8fbd0b9c167449d0bfcf1",
+      "lock-plugin/AuthLayout.js": "d769936a0f6177ff69f5c72c7b4e616d33dd3f2930758712d845cb9a354badb6",
+      "lock-plugin/SignalFault.qml": "8e568e830070861345b3aa71341ecb8a21a58c8ff445c1329eff1609b1be087d",
+      "lock-plugin/SignalRhythm.qml": "318413d3bd922a0bfef10aef7a5cc3378d963c10ba49150eddab92afcd082496",
+      "lock-plugin/PreviewPalette.js": "27d1972f2c8c6c163f591bcec5697953c629939aac29d2595f04e05e4d0d35af",
+      "askpass/askpass.py": "a2205f36e37d6d8933d824ba3fc2389334db09585cfbe28415bdf9c723ef9b57",
+      "askpass/FaultBackdrop.qml": "aabc2ddf05e478b2810e256bad21207bc1cd521f7bb8a1999d5485344a97f395"
+    }
+  },
+  "files": {
+    "apps.png": "cffb05183b5a8dac9287d08142483b86d5105631924967d012bac0edd9ba6102",
+    "auth.gif": "9f89aa75a0dd94b7b4ec99492e44b2f4c87690e673f9bbc85964ed7dc31cfc22",
+    "hero.png": "bdcd135a0452b929dea2f52d3010c20ddfc047b1073bb1c346e8ecbdaba35f34",
+    "keybindings.png": "67ac17a1a426d713316aa4d9d136d46023a6dcb43037e761e0c88656cba164aa",
+    "lock-detail.png": "7cde9313aef12f9b4a46d255b4172f733a99634a6e29434c69429cf05a3e2333",
+    "lock.mp4": "783ee0713f216d31b07fda66efd7931e8ebd882dfcf61a22b9279c51e5419a7c",
+    "lock.png": "0c1fd9a438e5e691210e1eb9e8cb7bc4f028b82b8dd59ba0d29ba459f36b3b0b",
+    "menu.gif": "e724d69b35e77e3e23d14177f52a02b84d3cb1dc9c340638f91cfdf483761754",
+    "menu.mp4": "8993986010e41cba41751ea65c66eb84ac5e56ae97b3f0d1f641f0cf3fd18459",
+    "menu.png": "935106f45c76c70ad6c403e88889f8df2fa27d4fa65d5cc2a877e9d5ef3c81b0",
+    "mute.png": "2f57be8be7285c056e8c9ead5c4f5754fdf104b0b7ae2db8ab3a109bee17fd92",
+    "notifications.png": "d2d7ac02b6fa0220aa33baebb552962a45f954b64f4f23587389e07ab57e8599",
+    "polkit-detail.png": "fc421d291fd6859442282c4ce54db92f5d96dd89d3cd2275c298fbe11c8f4519",
+    "polkit.mp4": "4426f44ec56c2f89225830ff19d03326733abc9060a9f7f2fc0204c0f88687f6",
+    "polkit.png": "75f8e372bbb5c22ee181b1e0f0e78595e1e54ebc492a549bf1e5111719875211",
+    "sudo-detail.png": "758b932228090948825f5f3b8306a375b503a4c55e9e1e2000c1042ae9c2503a",
+    "sudo.mp4": "430f32aa537f119b02a21254ddec8104fc4a23a3223f56bdf1eeabbbd135fe76",
+    "sudo.png": "ac149e2efdfef1ac950dd9d7504b31f4455c1333f0c7c3ecf18dd14126d0784f",
+    "volume.png": "ec0d11a2a8c82fcb44d2063357e9cc58d7ead36a4d70712d7b92c17e1aaa6dc4",
+    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883"
+  }
+}

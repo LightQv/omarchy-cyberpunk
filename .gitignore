@@ -3,11 +3,8 @@
 .state/
 lock-plugin/.preview/
 preview/
+/showcase/
 *.log
 __pycache__/
 *.pyc
-# Personal-use game imagery. Provenance in THIRD_PARTY.md; don't publish blobs
-# whose redistribution rights haven't been confirmed.
-theme/backgrounds/01-lucy.png
-theme/backgrounds/03-night-city.jpg
-theme/preview.png
+# Supplied wallpapers and the theme thumbnail are repository assets.

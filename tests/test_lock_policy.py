@@ -18,6 +18,7 @@ STATE_DIR="{state}"
 SAFE_MODE="$STATE_DIR/safe-mode"
 LOCK_PREF="$STATE_DIR/lock-preference"
 LOCK_TRIAL="$STATE_DIR/lock-trial"
+PREFERENCES="$STATE_DIR/no-preferences.json"
 lock_enabled && lock_allowed
 touch "$SAFE_MODE"
 ! lock_allowed
@@ -37,7 +38,7 @@ printf 'greeter\\n' >"$LOCK_TRIAL"
         with tempfile.TemporaryDirectory() as directory:
             pref = Path(directory) / "preference"
             pref.write_text("boot enabled\n")
-            script = f'source "{ROOT}/scripts/common.sh"; LOCK_PREF="{pref}"; lock_enabled'
+            script = f'source "{ROOT}/scripts/common.sh"; PREFERENCES="{directory}/absent.json"; LOCK_PREF="{pref}"; lock_enabled'
             self.assertNotEqual(subprocess.run(["bash", "-c", script], capture_output=True).returncode, 0)
             pref.unlink()
             pref.symlink_to(ROOT / "README.md")

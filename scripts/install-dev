@@ -19,9 +19,12 @@ omarchy plugin validate "$LOCK_SOURCE"
 [[ $(jq -r .id "$LOCK_SOURCE/manifest.json") == "$LOCK_ID" ]] || die "lock plugin id mismatch"
 [[ -x $PROJECT/askpass/cyberpunk-askpass ]] || die "graphical askpass unavailable"
 "$PROJECT/scripts/manage-bashrc.py" absent
-[[ -f $THEME_SOURCE/colors.toml && -f $THEME_SOURCE/backgrounds/01-lucy.png && -f $THEME_SOURCE/backgrounds/03-night-city.jpg ]] || die "theme artwork incomplete"
+[[ -f $THEME_SOURCE/colors.toml ]] || die "theme colors missing"
+for number in {01..13}; do
+  [[ -f $THEME_SOURCE/backgrounds/$number.png ]] || die "theme wallpaper missing: $number.png"
+done
 
-for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK"; do
+for path in "$THEME_LINK" "$PLUGIN_LINK" "$POLKIT_LINK" "$NOTIFY_LINK" "$OSD_LINK" "$LOCK_LINK" "$HOOK_LINK" "$BOOT_LINK" "$CLI_LINK"; do
   unoccupied "$path" || die "path already occupied: $path"
 done
 [[ $(current_theme) != cyberpunk ]] || die "Cyberpunk already selected before install"
@@ -46,6 +49,7 @@ omarchy plugin list --json | jq -e '[.[] | select(.clonedFrom == "omarchy.lock")
 previous=$(current_theme)
 [[ -d /usr/share/omarchy/themes/$previous || -d $HOME/.config/omarchy/themes/$previous ]] || die "previous theme unavailable"
 python -B "$PROJECT/scripts/backup-baseline.py"
+python -B "$PROJECT/scripts/preferences.py" init
 mkdir -p "$STATE_DIR"
 if unoccupied "$SAFE_MODE"; then
   printf 'lock acceptance pending\n' >"$SAFE_MODE"
@@ -67,6 +71,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 
+install_cli
 mkdir -p "$(dirname "$THEME_LINK")" "$(dirname "$PLUGIN_LINK")" "$(dirname "$HOOK_LINK")" "$(dirname "$BOOT_LINK")"
 ln -s "$THEME_SOURCE" "$THEME_LINK"
 ln -s "$PLUGIN_SOURCE" "$PLUGIN_LINK"
@@ -85,7 +90,8 @@ ln -s "$HOOK_SOURCE" "$HOOK_LINK"
 ln -s "$BOOT_SOURCE" "$BOOT_LINK"
 omarchy theme set cyberpunk
 [[ $(current_theme) == cyberpunk ]] || die "theme changed during installation"
+omarchy theme bg set "$HOME/.local/state/omarchy/current/theme/backgrounds/01.png"
 "$PROJECT/scripts/verify" --check
 [[ $(current_theme) == cyberpunk ]] || die "theme changed during final verification"
 trap - EXIT
-printf 'Cyberpunk: installed. Remove with %s/scripts/uninstall-dev\n' "$PROJECT"
+printf 'Cyberpunk: installed. Run cyberpunk status; enable components with cyberpunk enable <component|all>.\n'
