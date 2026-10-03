@@ -38,7 +38,15 @@ def main():
                 raise ValueError(f"Unexpected video format: {name}")
             if float(metadata["format"]["duration"]) < 1.4:
                 raise ValueError(f"Incomplete clip: {name}")
-    for group in (manifest["desktop"], manifest["auth"]):
+    live = manifest.get("liveDesktop")
+    groups = [manifest["desktop"], manifest["auth"]]
+    if live:
+        groups.append(live)
+        if "desktop.png" not in files:
+            raise ValueError("Live desktop capture is missing")
+        if hashlib.sha256((ROOT / "theme/backgrounds" / live["wallpaper"]).read_bytes()).hexdigest() != live["wallpaperSha256"]:
+            raise ValueError("Live desktop wallpaper changed")
+    for group in groups:
         for name, digest in group["inputs"].items():
             if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != digest:
                 raise ValueError(f"Showcase input changed: {name}")

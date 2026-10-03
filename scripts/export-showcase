@@ -51,6 +51,11 @@ def main():
         "files": {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in sorted(OUTPUT.iterdir()) if path.suffix in (".png", ".gif", ".mp4")},
     }
+    previous = OUTPUT / "manifest.json"
+    if previous.exists():
+        live = json.loads(previous.read_text()).get("liveDesktop")
+        if live and (OUTPUT / "desktop.png").exists():
+            manifest["liveDesktop"] = live
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Published {len(manifest['files'])} showcase assets to docs/media.")
 

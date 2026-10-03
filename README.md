@@ -2,14 +2,16 @@
 
 # Omarchy Cyberpunk
 
-**A red/turquoise HUD for your Omarchy desktop.**
+**Bring Night City to your Omarchy desktop.**
 
-Curved command menus · warning notifications · matching authentication
+Neon accents. Angular interfaces. A Cyberpunk setup you control.
 
 ![Omarchy](https://img.shields.io/badge/Omarchy-4.0.4--1-ff3045?style=for-the-badge)
 ![Hyprland](https://img.shields.io/badge/Hyprland-53e3d2?style=for-the-badge&logo=hyprland&logoColor=07090e)
 ![Quickshell](https://img.shields.io/badge/Quickshell-Qt_6-ff3045?style=for-the-badge&logo=qt&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Development-53e3d2?style=for-the-badge)
+
+<a href="docs/media/desktop.png"><img src="docs/media/desktop.png" width="1100" alt="Cyberpunk desktop with the live Omarchy top bar above the Night City skyline on wallpaper 11"></a>
 
 <img src="docs/media/hero.png" width="1100" alt="Curved Cyberpunk command menu with red and turquoise frames over wallpaper 06">
 
@@ -60,7 +62,9 @@ highlights and frozen-background signal faults.
   </tr>
 </table>
 
-Desktop views are actual component QML captured in a clean private preview session;
+The opening desktop shot shows the live Omarchy bar with the author's configured
+widgets; bar layout and third-party widgets are personal choices, not bundled defaults.
+Component views are actual QML captured in a clean private preview session;
 shortcut rows and notifications use illustrative data. Auth views are offline
 appearance demos, with no real credentials or authentication requests. Optional
 components are shown enabled for the showcase; **fresh installs are base-only**.
@@ -121,8 +125,8 @@ update that changes that contract needs review before custom-lock activation.
 ## // Install
 
 This is a development checkout with reversible user-owned integration. A pristine
-new-user/machine installation remains a release qualification; see the
-[acceptance roadmap](LOGIN-LOCK-PALETTE-OSD-PLAN.md).
+new-user/machine installation remains a release qualification; see
+**Status and development** below.
 
 ```sh
 git clone https://github.com/LightQv/omarchy-cyberpunk.git
@@ -237,7 +241,7 @@ cyberpunk uninstall
 Removal restores native plugins and the recorded prior theme, removing only owned
 links/hooks, the CLI link and exact Bash stanza. Source, wallpapers, preferences and
 private backups stay available. Missing-link recovery is supported; foreign paths, edited markers and
-different active clones are protected. See the roadmap for lifecycle evidence.
+different active clones are protected.
 
 ## // Status and development
 
@@ -266,12 +270,9 @@ scripts/verify --check
 Offline auth tooling defaults to `01.png`, supports per-view wallpaper choices and
 never authenticates or registers secure surfaces.
 
-The showcase uses `06`, `07`, `09`, `10` and `12`. See
+The showcase uses `06`, `07`, `09`, `10`, `11` and `12`. See
 [media reproduction instructions](docs/media/README.md) for the exact renderer
 commands and source/artwork hashes. Working captures stay local and ignored.
-
-Detailed live acceptance and remaining release gates:
-[LOGIN-LOCK-PALETTE-OSD-PLAN.md](LOGIN-LOCK-PALETTE-OSD-PLAN.md).
 
 ## // Credits
 

@@ -80,6 +80,18 @@
     "sudo.mp4": "430f32aa537f119b02a21254ddec8104fc4a23a3223f56bdf1eeabbbd135fe76",
     "sudo.png": "ac149e2efdfef1ac950dd9d7504b31f4455c1333f0c7c3ecf18dd14126d0784f",
     "volume.png": "ec0d11a2a8c82fcb44d2063357e9cc58d7ead36a4d70712d7b92c17e1aaa6dc4",
-    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883"
+    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883",
+    "desktop.png": "618a06a920a4c789240f6537f9b16f6ac3aec9c15d808f70f1eba58169cc809d"
+  },
+  "liveDesktop": {
+    "kind": "live Omarchy desktop, actual configured top bar on an empty workspace",
+    "wallpaper": "11.png",
+    "wallpaperSha256": "54872d0654ce2c40b1ec7ac8b6313e0c8719c9b324f260e1766f07cb8f823ffd",
+    "inputs": {
+      "scripts/capture-desktop": "c47f4fae39425c0f7af230be7721c23122f582cbae1c452f1fd6fe5f92631715",
+      "theme/colors.toml": "6c8251d73c072ea7fbf2d8f4d201a148dbfb979890b94f9bafa4c3120645ab18",
+      "theme/shell.toml": "f4b9166c1776f39a003dbe4d5c65b0f809240f24b90c06cc7d2339f0fda7f001"
+    },
+    "note": "Top-bar widgets reflect the author's setup, not fresh-install defaults."
   }
 }

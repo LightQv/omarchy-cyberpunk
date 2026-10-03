@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Capture the live top bar over wallpaper 11, restoring wallpaper and workspace."""
+
+import hashlib
+import io
+import json
+from pathlib import Path
+import subprocess
+import time
+
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parent.parent
+MEDIA = ROOT / "docs/media"
+
+
+def run(*args):
+    return subprocess.check_output(args, text=True, timeout=15).strip()
+
+
+def main():
+    display = next(item for item in json.loads(run("hyprctl", "-j", "monitors")) if item["focused"])
+    workspace = display["activeWorkspace"]["id"]
+    if display["specialWorkspace"]["id"]:
+        raise RuntimeError("Close the special workspace before capturing")
+    occupied = {item["id"] for item in json.loads(run("hyprctl", "-j", "workspaces"))}
+    empty = next(number for number in range(1, 100) if number not in occupied)
+    background = (Path.home() / ".local/state/omarchy/current/background").resolve(strict=True)
+    wallpaper = ROOT / "theme/backgrounds/11.png"
+    try:
+        run("omarchy", "theme", "bg", "set", str(wallpaper))
+        run("hyprctl", "dispatch", f'hl.dsp.focus({{ workspace = "{empty}" }})')
+        time.sleep(2)
+        if json.loads(run("hyprctl", "-j", "activeworkspace"))["windows"]:
+            raise RuntimeError("Capture workspace is no longer empty")
+        pixels = subprocess.check_output(
+            ["grim", "-t", "ppm", "-o", display["name"], "-"], timeout=15)
+        with Image.open(io.BytesIO(pixels)) as source:
+            image = source.convert("RGB")
+            image.thumbnail((2560, 2560), Image.Resampling.LANCZOS)
+    finally:
+        try:
+            run("omarchy", "theme", "bg", "set", str(background))
+        finally:
+            run("hyprctl", "dispatch", f'hl.dsp.focus({{ workspace = "{workspace}" }})')
+    image.save(MEDIA / "desktop.png", optimize=True)
+    manifest_path = MEDIA / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["liveDesktop"] = {
+        "kind": "live Omarchy desktop, actual configured top bar on an empty workspace",
+        "wallpaper": "11.png",
+        "wallpaperSha256": hashlib.sha256(wallpaper.read_bytes()).hexdigest(),
+        "inputs": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+                   for name in ("scripts/capture-desktop", "theme/colors.toml", "theme/shell.toml")},
+        "note": "Top-bar widgets reflect the author's setup, not fresh-install defaults.",
+    }
+    manifest["files"]["desktop.png"] = hashlib.sha256((MEDIA / "desktop.png").read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    print("Captured live desktop; original wallpaper and workspace restored.")
+
+
+if __name__ == "__main__":
+    main()
