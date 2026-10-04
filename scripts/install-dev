@@ -80,11 +80,19 @@ ln -s "$NOTIFY_SOURCE" "$NOTIFY_LINK"
 ln -s "$OSD_SOURCE" "$OSD_LINK"
 ln -s "$LOCK_SOURCE" "$LOCK_LINK"
 omarchy-shell shell rescanPlugins >/dev/null
-omarchy plugin list --json | jq -e --arg id "$PLUGIN_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "clone was not discovered safely"
-omarchy plugin list --json | jq -e --arg id "$POLKIT_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "Polkit clone was not discovered safely"
-omarchy plugin list --json | jq -e --arg id "$NOTIFY_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "notifications clone was not discovered safely"
-omarchy plugin list --json | jq -e --arg id "$OSD_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "OSD clone was not discovered safely"
-omarchy plugin list --json | jq -e --arg id "$LOCK_ID" 'any(.[]; .id == $id and .enabled == false)' >/dev/null || die "lock clone was not discovered safely"
+# Native rescan launches an asynchronous registry scan. Do not treat its IPC
+# return as completed discovery, or advance while any clone is active/missing.
+ids=$(jq -cn --args '$ARGS.positional' "$PLUGIN_ID" "$POLKIT_ID" "$NOTIFY_ID" "$OSD_ID" "$LOCK_ID")
+discovered=false
+for (( attempt=0; attempt<50; attempt++ )); do
+  if plugins=$(timeout 2 omarchy plugin list --json) &&
+    jq -e --argjson ids "$ids" '. as $plugins | all($ids[]; . as $id | any($plugins[]; .id == $id and .enabled == false))' <<<"$plugins" >/dev/null; then
+    discovered=true
+    break
+  fi
+  sleep 0.2
+done
+[[ $discovered == true ]] || die "clones were not discovered disabled; native services retained for recovery"
 "$PROJECT/scripts/manage-bashrc.py" install
 ln -s "$HOOK_SOURCE" "$HOOK_LINK"
 ln -s "$BOOT_SOURCE" "$BOOT_LINK"

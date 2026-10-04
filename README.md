@@ -311,7 +311,7 @@ different active clones are protected. Development checkouts remain untouched.
 
 ## Status and development
 
-**58 regression tests** and live desktop/auth/lifecycle checks passed on the
+**60 regression tests** and live desktop/auth/lifecycle checks passed on the
 inspected setup. Native idle locking, display blank/wake and controlled
 screensaver-class wallpaper fallback passed too.
 The tests and public media/link checks also pass from a clean tracked-file export;
@@ -350,7 +350,7 @@ change your daily desktop.
 ./dev preview installer            # Real banner/prompts, simulated installation
 ./dev preview installer --setup full --non-interactive
 ./dev build                        # Local v0.0.0 archive, not installed/published
-./dev build v0.1.3                  # Explicit local candidate version
+./dev build v0.1.4                  # Explicit local candidate version
 ```
 
 Generated previews remain under ignored `preview/` and `showcase/`; local archives

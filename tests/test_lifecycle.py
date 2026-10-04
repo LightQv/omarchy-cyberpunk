@@ -69,9 +69,13 @@ elif args == ["version"]: print("4.0.4-1")
 elif args[:2] == ["plugin", "validate"]: pass
 elif args == ["plugin", "list", "--json"]:
     result = []
+    delayed = bool(control.get("discovery_delay")) and all(present(kind) for kind in kinds)
+    if delayed:
+        control["discovery_delay"] -= 1
+        (home / "control.json").write_text(json.dumps(control))
     for kind in kinds:
         result.append(dict(id=stock(kind), enabled=enabled(stock(kind))))
-        if present(kind): result.append(dict(id=clone(kind), enabled=enabled(clone(kind)), clonedFrom=stock(kind)))
+        if present(kind) and not delayed: result.append(dict(id=clone(kind), enabled=enabled(clone(kind)), clonedFrom=stock(kind)))
     if control.get("foreign_active"):
         result.append(dict(id="foreign.clone", enabled=True, clonedFrom=control["foreign_active"]))
     print(json.dumps(result))

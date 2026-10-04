@@ -173,6 +173,19 @@ class ReleaseTest(unittest.TestCase):
         self.assertIn('safe mode', result.stdout)
         self.cli('check')
 
+    def test_asynchronous_discovery_finishes_before_activation(self):
+        self.fixture.control.write_text('{"discovery_delay": 3}')
+        self.run_release(options=('--setup', 'full', '--non-interactive'))
+        self.assertEqual(json.loads(self.fixture.control.read_text())['discovery_delay'], 0)
+        self.cli('check')
+
+    def test_discovery_timeout_rolls_back_without_activating_components(self):
+        self.fixture.control.write_text('{"discovery_delay": 100}')
+        self.run_release(success=False, options=('--setup', 'full', '--non-interactive'))
+        self.assertFalse(self.dest.exists())
+        self.assertFalse((self.state / 'preferences.json').exists())
+        self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
+
     def test_unattended_custom_first_install(self):
         self.run_release(options=('--components', 'menu,osd,sudo', '--non-interactive'))
         values = json.loads((self.state / 'preferences.json').read_text())['components']
