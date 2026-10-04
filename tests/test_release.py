@@ -34,9 +34,9 @@ class ReleaseTest(unittest.TestCase):
         (target / "release.json").write_text(json.dumps({"version": version, "omarchy": "4.0.4-1", "files": files}))
         return target
 
-    def run_release(self, payload=None, success=True):
+    def run_release(self, payload=None, success=True, options=()):
         payload = payload or self.payload
-        result = subprocess.run(["python", "-B", str(payload / "scripts/release.py"), "install", str(payload)],
+        result = subprocess.run(["python", "-B", str(payload / "scripts/release.py"), "install", str(payload), *options],
                                 env=self.env, capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
         return result
@@ -167,7 +167,50 @@ class ReleaseTest(unittest.TestCase):
         self.run_release(changed, success=False)
         self.cli('check')
 
-    def bootstrap(self, unsafe=False, mismatch=False):
+    def test_full_first_install_selects_all_once_but_keeps_stock_lock(self):
+        result = self.run_release(options=('--setup', 'full', '--non-interactive'))
+        self.assertTrue(all(json.loads((self.state / 'preferences.json').read_text())['components'].values()))
+        self.assertIn('safe mode', result.stdout)
+        self.cli('check')
+
+    def test_unattended_custom_first_install(self):
+        self.run_release(options=('--components', 'menu,osd,sudo', '--non-interactive'))
+        values = json.loads((self.state / 'preferences.json').read_text())['components']
+        self.assertEqual({name for name, enabled in values.items() if enabled}, {'menu', 'osd', 'sudo'})
+        self.cli('check')
+
+    def test_update_refuses_setup_override_and_preserves_preferences(self):
+        self.run_release()
+        self.cli('enable', 'menu')
+        before = (self.state / 'preferences.json').read_bytes()
+        self.run_release(self.make_payload('v0.1.1'), success=False, options=('--setup', 'full'))
+        self.assertEqual((self.state / 'preferences.json').read_bytes(), before)
+        self.cli('check')
+
+    def test_retained_preferences_skip_first_install_selection(self):
+        self.run_release()
+        self.cli('enable', 'menu')
+        before = (self.state / 'preferences.json').read_bytes()
+        self.cli('uninstall')
+        result = self.run_release()
+        self.assertNotIn('Requested setup:', result.stdout)
+        self.assertEqual((self.state / 'preferences.json').read_bytes(), before)
+
+    def test_failed_first_install_restores_prior_preference_state(self):
+        self.fixture.control.write_text('{"fail_once": "theme set cyberpunk"}')
+        self.run_release(success=False, options=('--setup', 'full', '--non-interactive'))
+        self.assertFalse(self.dest.exists())
+        self.assertFalse((self.state / 'preferences.json').exists())
+        self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
+
+    def test_invalid_or_unattended_interactive_choices_do_not_install(self):
+        self.run_release(success=False, options=('--components', 'menu,unknown'))
+        self.assertFalse(self.dest.exists())
+        self.assertFalse((self.state / 'preferences.json').exists())
+        self.run_release(success=False, options=('--setup', 'custom', '--non-interactive'))
+        self.assertFalse(self.dest.exists())
+
+    def bootstrap(self, unsafe=False, mismatch=False, piped=False):
         download = self.fixture.home / "downloads"
         download.mkdir()
         temporary = self.fixture.home / "temporary"
@@ -175,7 +218,7 @@ class ReleaseTest(unittest.TestCase):
         name = "omarchy-cyberpunk-v0.1.0"
         asset = download / (name + ".tar.gz")
         with tarfile.open(asset, "w:gz") as archive:
-            script = b'#!/bin/bash\nprintf installed > "$HOME/bootstrap-installed"\n'
+            script = b'#!/bin/bash\nprintf installed > "$HOME/bootstrap-installed"\nprintf "%s\\n" "$@" > "$HOME/bootstrap-options"\n'
             entry = tarfile.TarInfo(("../escape" if unsafe else name + "/install"))
             entry.size = len(script)
             entry.mode = 0o755
@@ -192,7 +235,9 @@ else:
     shutil.copyfile(pathlib.Path(os.environ["TEST_DOWNLOADS"])/url.rsplit("/",1)[1], args[args.index("-o")+1])
 ''')
         curl.chmod(0o755)
-        result = subprocess.run(["bash", str(test_lifecycle.ROOT / "install.sh")],
+        command = ["bash", "-s", "--", "--setup", "full", "--non-interactive"] if piped else ["bash", str(test_lifecycle.ROOT / "install.sh")]
+        script = (test_lifecycle.ROOT / "install.sh").read_text() if piped else None
+        result = subprocess.run(command, input=script,
             env=dict(self.env, TEST_DOWNLOADS=str(download), TMPDIR=str(temporary)), capture_output=True, text=True, timeout=20)
         self.assertEqual(list(temporary.iterdir()), [], result.stdout + result.stderr)
         self.assertEqual((self.fixture.home / "bootstrap-installed").exists(), not (unsafe or mismatch))
@@ -200,9 +245,14 @@ else:
         self.assertIn('OMARCHY CYBERPUNK · v0.1.0', result.stdout)
         self.assertNotIn('\x1b', result.stdout)
         self.assertEqual('Ready.' in result.stdout, not (unsafe or mismatch))
+        if piped:
+            self.assertEqual((self.fixture.home / 'bootstrap-options').read_text(), '--setup\nfull\n--non-interactive\n')
 
     def test_bootstrap_downloads_latest_and_cleans_temporary_files(self):
         self.bootstrap()
+
+    def test_piped_bootstrap_forwards_unattended_setup_options(self):
+        self.bootstrap(piped=True)
 
     def test_bootstrap_rejects_bad_checksum(self):
         self.bootstrap(mismatch=True)

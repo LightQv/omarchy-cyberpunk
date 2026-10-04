@@ -81,7 +81,9 @@ def publish(values):
             temporary.unlink(missing_ok=True)
 
 
-def update(component=None, enabled=None):
+def update(component=None, enabled=None, choices=None):
+    if choices is not None and (set(choices) != set(COMPONENTS) or any(type(value) is not bool for value in choices.values())):
+        raise ValueError("preferences require six boolean component choices")
     DIRECTORY.mkdir(parents=True, exist_ok=True, mode=0o700)
     trusted(DIRECTORY, directory=True)
     descriptor = os.open(DIRECTORY / "preferences.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
@@ -89,10 +91,12 @@ def update(component=None, enabled=None):
         trusted(DIRECTORY / "preferences.lock")
         fcntl.flock(lock, fcntl.LOCK_EX)
         values = load()
+        if choices is not None:
+            values = dict(choices)
         if component is not None:
             for name in COMPONENTS if component == "all" else (component,):
                 values[name] = enabled
-        if component is not None or not PATH.exists():
+        if component is not None or choices is not None or not PATH.exists():
             publish(values)
         return values
 

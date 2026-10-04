@@ -6,7 +6,7 @@ export PYTHONDONTWRITEBYTECODE=1
 usage() {
   printf '%s\n' 'Usage: ./dev <command>' '' \
     '  test                       Run the isolated regression suite' \
-    '  preview [auth|desktop]     Render checkout code (default: offline auth)' \
+    '  preview [auth|desktop|installer]  Preview checkout code (default: auth)' \
     '  build [vX.Y.Z]             Build a local archive under dist/dev/' \
     '  --help                    Show this help' '' \
     'Auth preview options after auth are passed to the renderer.' \
@@ -33,6 +33,7 @@ case ${1:---help} in
       desktop)
         [[ $# == 0 ]] || { usage; exit 1; }
         exec python -B "$root/scripts/preview-desktop" ;;
+      installer) exec bash "$root/scripts/preview-installer" "$@" ;;
       *) usage; exit 1 ;;
     esac ;;
   build)

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNTIME_SCRIPTS = {
     "common.sh", "cyberpunk", "preferences.py", "verify", "install-dev", "uninstall-dev",
     "backup-baseline.py", "manage-bashrc.py", "interactive-sudo.sh", "render-palette", "build-lock",
-    "queue-lock-transition", "wait-unlocked", "release.py",
+    "queue-lock-transition", "wait-unlocked", "release.py", "installer_ui.py",
 }
 DIRECTORIES = {"theme", "askpass", "hooks", "menu-plugin", "polkit-plugin",
                "notifications-plugin", "osd-plugin", "lock-plugin"}

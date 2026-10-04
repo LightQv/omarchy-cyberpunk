@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root=$(realpath -e -- "$(dirname -- "${BASH_SOURCE[0]}")/..")
+source "$root/install.sh"
+banner "installer preview"
+exec python -B "$root/scripts/installer_ui.py" "$@"

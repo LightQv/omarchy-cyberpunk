@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Install release files into Omarchy's native layout with journaled rollback."""
 
+import argparse
 import fcntl
 import hashlib
 import json
@@ -11,6 +12,9 @@ import stat
 import subprocess
 import sys
 import tempfile
+
+import installer_ui
+import preferences
 
 ROOT = Path(__file__).resolve().parent.parent
 HOME = Path.home()
@@ -110,13 +114,13 @@ def validate_payload(payload):
     return release
 
 
-def run_script(root, script, staging=False):
+def run_script(root, script, *args, staging=False):
     environment = dict(ENV, CYBERPUNK_LIFECYCLE_FD="7")
     if staging:
         environment["CYBERPUNK_RELEASE_STAGING"] = "1"
     else:
         environment.pop("CYBERPUNK_RELEASE_STAGING", None)
-    subprocess.run([str(root / "scripts" / script)], env=environment, pass_fds=(7,), check=True)
+    subprocess.run([str(root / "scripts" / script), *args], env=environment, pass_fds=(7,), check=True)
 
 
 def native(*args):
@@ -179,6 +183,11 @@ def recover():
                 raise ValueError("Support files changed during recovery; transaction retained")
         run_script(DEST, "uninstall-dev")
         shutil.rmtree(DEST)
+    if "preferencesBefore" in journal:
+        if journal["preferencesBefore"] is None:
+            preferences.PATH.unlink(missing_ok=True)
+        else:
+            write_json(preferences.PATH, journal["preferencesBefore"])
     if journal["oldKind"] == "managed":
         populate(TRANSACTION / "previous")
         restore_view(journal)
@@ -196,7 +205,7 @@ def recover():
     shutil.rmtree(TRANSACTION)
 
 
-def install(payload):
+def install(payload, setup=None, components=None, non_interactive=False):
     release = validate_payload(payload)
     version = subprocess.check_output(["omarchy", "version"], env=ENV, text=True).strip()
     if version != release["omarchy"]:
@@ -226,11 +235,14 @@ def install(payload):
         old, kind = old, "legacy"
     elif LAYOUT["theme"].exists():
         raise ValueError("Cyberpunk theme path is occupied by an unmanaged directory")
+    if old and (setup is not None or components is not None):
+        raise ValueError("An installation already exists; choices are preserved. Use cyberpunk enable/disable to change them")
     if old and (old / "release.json").exists() and json.loads((old / "release.json").read_text())["version"] == release["version"]:
         if json.loads((old / "release.json").read_text()) != release:
             raise ValueError("A published version must not change its files; use a new release version")
         run_script(old, "verify")
         print(f"Cyberpunk {release['version']} is already installed.")
+        run_script(DEST, "cyberpunk", "status")
         return
     if kind == "legacy":
         if (old / ".state/lock-trial").exists():
@@ -251,8 +263,13 @@ def install(payload):
             parents(target)
             if target.exists() or target.is_symlink():
                 raise ValueError(f"Installation path is occupied: {target}")
+    preferences.load()  # Validate retained state before prompting or changing files.
+    choices = None
+    if kind == "none" and (not preferences.PATH.exists() or setup is not None or components is not None):
+        choices = installer_ui.select(setup, components, non_interactive)
     journal = {"oldKind": kind, "oldRoot": str(old) if old else None,
-               "theme": (CURRENT / "theme.name").read_text().strip(), "wallpaper": None}
+               "theme": (CURRENT / "theme.name").read_text().strip(), "wallpaper": None,
+               "preferencesBefore": json.loads(preferences.PATH.read_text()) if preferences.PATH.exists() else None}
     background = CURRENT / "background"
     if background.exists():
         original = background.resolve()
@@ -276,6 +293,8 @@ def install(payload):
             if kind == "managed":
                 shutil.rmtree(DEST)
         populate(payload)
+        if choices is not None:
+            preferences.update(choices=choices)
         restore_view(journal, fresh=kind == "none")
     except BaseException:
         # The inner install trap may have unlocked the inherited operation lock.
@@ -286,7 +305,8 @@ def install(payload):
             print(f"Recovery incomplete: {error}. Rerun the release installer while unlocked; journal retained at {TRANSACTION}", file=sys.stderr)
         raise
     shutil.rmtree(TRANSACTION)
-    print(f"Cyberpunk {release['version']} installed. Run cyberpunk status.", flush=True)
+    print(f"Cyberpunk {release['version']} installed.", flush=True)
+    run_script(DEST, "cyberpunk", "status")
 
 
 def uninstall():
@@ -301,9 +321,18 @@ def uninstall():
 
 
 def main():
-    action = sys.argv[1]
+    parser = argparse.ArgumentParser(description=__doc__)
+    actions = parser.add_subparsers(dest="action", required=True)
+    install_parser = actions.add_parser("install")
+    install_parser.add_argument("payload", type=Path)
+    installer_ui.arguments(install_parser)
+    actions.add_parser("uninstall")
+    for name in ("owned", "remove-path"):
+        actions.add_parser(name).add_argument("path", type=Path)
+    args = parser.parse_args()
+    action = args.action
     if action in ("owned", "remove-path"):
-        path = Path(sys.argv[2])
+        path = args.path
         owned(ROOT, path)
         if action == "remove-path":
             shutil.rmtree(path)
@@ -320,7 +349,7 @@ def main():
     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
     os.dup2(descriptor, 7)
     if action == "install":
-        install(Path(sys.argv[2]).resolve())
+        install(args.payload.resolve(), args.setup, args.components, args.non_interactive)
     elif action == "uninstall":
         uninstall()
     else:
@@ -330,6 +359,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, subprocess.CalledProcessError, KeyboardInterrupt) as error:
         print(f"Cyberpunk: {error}", file=sys.stderr)
         sys.exit(1)

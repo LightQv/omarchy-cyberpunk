@@ -140,8 +140,32 @@ verifies its SHA-256 checksum and file manifest, installs it, and removes the te
 download. Existing checkout installations migrate with their saved choices preserved.
 
 Wide UTF-8 terminals show the supplied Cyberpunk Braille logo before downloading.
-Narrow terminals and redirected output use a compact caption. `NO_COLOR` suppresses
-banner colors.
+Its fixed true-color turquoise is **`#53e3d2`**, independent of terminal theme colors.
+Narrow terminals and redirected output use a compact caption. `NO_COLOR` or a
+terminal without advertised true-color support uses plain text.
+
+After the release is verified, **first-time interactive installation** asks for:
+
+1. **Base theme only** — palette, wallpapers and borders (default).
+2. **Full stack** — all six optional presentation preferences enabled.
+3. **Custom** — choose menu, notifications, OSD, sudo, Polkit and lock individually.
+
+Selections are shown for confirmation and applied together. The final summary
+reports saved choices and actual providers; stock lock remains active while safe
+mode is on, even if full/custom setup requests the themed lock. Updates, repeat
+installations and reinstalls with retained preferences preserve choices without
+prompting again. Interactive answers come from `/dev/tty`, not the piped script.
+
+Unattended first installation defaults to base-only. Explicit first-install options:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/LightQv/omarchy-cyberpunk/main/install.sh | bash -s -- --setup full --non-interactive
+curl -fsSL https://raw.githubusercontent.com/LightQv/omarchy-cyberpunk/main/install.sh | bash -s -- --components menu,notifications,osd --non-interactive
+```
+
+Setup overrides are refused on existing installations; change those choices with
+`cyberpunk enable|disable` instead. At completion, use `cyberpunk status` to inspect
+the current state and `cyberpunk --help` for all component-management commands.
 
 | Installed content | Location |
 | --- | --- |
@@ -190,9 +214,10 @@ native desktop services. The project follows your existing Omarchy keybindings.
 
 ### One command, six optional components
 
-**Fresh installation is base-theme only:** palette, wallpapers and borders with
-native menu, notifications, OSD, sudo, Polkit and lock presentation. Enable the
-components you want from any directory:
+**Base-only is the fresh-install default:** palette, wallpapers and borders with
+native menu, notifications, OSD, sudo, Polkit and lock presentation. The installer
+can select your optional components up front; you can change them afterward from
+any directory:
 
 ```sh
 cyberpunk --help
@@ -286,7 +311,7 @@ different active clones are protected. Development checkouts remain untouched.
 
 ## Status and development
 
-**47 regression tests** and live desktop/auth/lifecycle checks passed on the
+**58 regression tests** and live desktop/auth/lifecycle checks passed on the
 inspected setup. Native idle locking, display blank/wake and controlled
 screensaver-class wallpaper fallback passed too.
 The tests and public media/link checks also pass from a clean tracked-file export;
@@ -322,14 +347,20 @@ change your daily desktop.
 ./dev test
 ./dev preview                      # Offline lock/sudo/Polkit previews
 ./dev preview desktop              # Private desktop-component preview
+./dev preview installer            # Real banner/prompts, simulated installation
+./dev preview installer --setup full --non-interactive
 ./dev build                        # Local v0.0.0 archive, not installed/published
-./dev build v0.1.2                  # Explicit local candidate version
+./dev build v0.1.3                  # Explicit local candidate version
 ```
 
 Generated previews remain under ignored `preview/` and `showcase/`; local archives
 and checksums go to ignored `dist/dev/`. Renderer options can follow the preview
 type, for example `./dev preview auth --lock-wallpaper 11.png`. Stage any new runtime
 files in Git before building so the packager includes them.
+
+Installer preview reads the same choices from the terminal but makes no network
+requests and writes no preferences or installed files. You can also preview a
+custom selection with `./dev preview installer --components menu,osd --non-interactive`.
 
 Production and development providers share IDs, so a complete live development
 installation belongs in a **separate Omarchy user/session or VM**. Tests use an

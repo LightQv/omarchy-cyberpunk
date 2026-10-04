@@ -5,9 +5,11 @@ banner() {
   # The supplied UTF-8 Braille artwork is kept literal: no escape processing.
   # Redirected output and narrow/non-UTF-8 terminals get the compact caption.
   local width locale=${LC_ALL:-${LC_CTYPE:-${LANG:-}}}
-  width=$(tput cols 2>/dev/null || printf '80')
+  width=$(tput cols 2>/dev/null </dev/tty || printf '80')
+  local color=false
+  if [[ -z ${NO_COLOR+x} && ( ${COLORTERM:-} == truecolor || ${COLORTERM:-} == 24bit || ${TERM:-} == *-direct ) ]]; then color=true; fi
   if [[ -t 1 && ${TERM:-dumb} != dumb && ${locale,,} == *utf*8* && $width =~ ^[0-9]+$ && $width -ge 61 ]]; then
-    if [[ -z ${NO_COLOR+x} ]]; then printf '\033[93m'; fi
+    if [[ $color == true ]]; then printf '\033[38;2;83;227;210m'; fi
     cat <<'LOGO'
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀⡔⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡠⢚⣉⣠⡽⠂⠀⠀⠀⠀⡰⢋⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⢴⡆⠀⠀
@@ -18,7 +20,7 @@ banner() {
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣜⡵⠟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⢏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠓⢿⣕⡄
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⣯⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡼⠃
 LOGO
-    if [[ -z ${NO_COLOR+x} ]]; then printf '\033[0m'; fi
+    if [[ $color == true ]]; then printf '\033[0m'; fi
   fi
   printf '\nOMARCHY CYBERPUNK · %s\n\n' "$1"
 }
@@ -26,8 +28,24 @@ main() {
   for command in curl python sha256sum mktemp; do
     command -v "$command" >/dev/null || { printf 'Missing dependency: %s\n' "$command" >&2; return 1; }
   done
-  local version=${1:-} repo=LightQv/omarchy-cyberpunk
-  [[ $# -le 1 ]] || { printf 'Usage: install.sh [vX.Y.Z]\n' >&2; return 1; }
+  local version= repo=LightQv/omarchy-cyberpunk
+  local -a options=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --setup|--components)
+        [[ $# -ge 2 ]] || { printf 'Missing value for %s\n' "$1" >&2; return 1; }
+        options+=("$1" "$2"); shift 2 ;;
+      --non-interactive) options+=("$1"); shift ;;
+      --version)
+        [[ $# -ge 2 && -z $version ]] || { printf 'Specify one release version\n' >&2; return 1; }
+        version=$2; shift 2 ;;
+      v*) [[ -z $version ]] || return 1; version=$1; shift ;;
+      --help|-h)
+        printf 'Usage: install.sh [vX.Y.Z] [--setup base|full|custom | --components menu,osd,...] [--non-interactive]\n'
+        return ;;
+      *) printf 'Unknown installer option: %s\n' "$1" >&2; return 1 ;;
+    esac
+  done
   if [[ -z $version ]]; then
     version=$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --connect-timeout 15 --max-time 120 \
       "https://api.github.com/repos/$repo/releases/latest" | python -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
@@ -59,9 +77,9 @@ with tarfile.open(root / name) as archive:
     archive.extractall(root, filter="data")
 PY
   printf 'Installing…\n'
-  bash "$temporary/${asset%.tar.gz}/install"
+  bash "$temporary/${asset%.tar.gz}/install" "${options[@]}"
   rm -rf -- "$temporary"
   trap - EXIT
-  printf '\nReady.\n\n  cyberpunk status\n  cyberpunk enable menu\n\n'
+  printf '\nReady.\n\nInspect your setup:       cyberpunk status\nChange component choices: cyberpunk --help\n\n'
 }
-main "$@"
+if [[ -z ${BASH_SOURCE[0]:-} || ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
