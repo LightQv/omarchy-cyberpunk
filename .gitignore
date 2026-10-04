@@ -4,6 +4,7 @@
 lock-plugin/.preview/
 preview/
 /showcase/
+/dist/
 *.log
 __pycache__/
 *.pyc

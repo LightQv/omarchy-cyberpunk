@@ -19,14 +19,14 @@ Neon accents. Angular interfaces. A Cyberpunk setup you control.
 
 </div>
 
-## // The desktop, in red and turquoise
+## The desktop, in red and turquoise
 
 Cyberpunk-inspired presentation built around **Omarchy's native shell and theme
 picker**. The palette, menu and authentication surfaces share the same visual
 language: angular frames, curved HUD rows, translucent red fields, turquoise
 highlights and frozen-background signal faults.
 
-## // Showcase
+## Showcase
 
 <table>
   <tr>
@@ -71,7 +71,7 @@ components are shown enabled for the showcase; **fresh installs are base-only**.
 
 [Full-resolution motion clips and reproduction details →](docs/media/README.md)
 
-## // Components
+## Components
 
 | Component | What you get |
 | --- | --- |
@@ -86,7 +86,7 @@ Sudo/Polkit shuffle 0.85/1.10/1.40-second fault sequences with varied pauses.
 `OMARCHY_REDUCED_MOTION=1` suppresses their cosmetic loops. Passwords stay in the
 native authentication flow; diagnostic IPC and review captures do not carry them.
 
-## // Wallpapers
+## Wallpapers
 
 [`theme/backgrounds/`](theme/backgrounds/) contains the author's **13 generated
 wallpapers**, copied without resizing or recompression:
@@ -112,7 +112,7 @@ omarchy theme bg next
 Additional personal backgrounds can go in `~/.config/omarchy/backgrounds/cyberpunk/`.
 Omarchy includes those alongside the bundled collection.
 
-## // Requirements
+## Requirements
 
 - **Omarchy 4.0.4-1** in a running Hyprland/Wayland session.
 - Omarchy's Quickshell/Qt 6 environment, Python/PySide6, Bash, `jq`, `flock` and `grim`.
@@ -125,7 +125,7 @@ Pillow, FFmpeg and ImageMagick are only needed for development preview/thumbnail
 The session-lock generator checks the inspected upstream release. An Omarchy
 update that changes that contract needs review before custom-lock activation.
 
-## // Install
+## Install
 
 Install the latest versioned release with one command, as your desktop user:
 
@@ -138,6 +138,10 @@ cyberpunk check
 **No Git checkout or sudo required.** The bootstrap downloads a tagged GitHub release,
 verifies its SHA-256 checksum and file manifest, installs it, and removes the temporary
 download. Existing checkout installations migrate with their saved choices preserved.
+
+Wide UTF-8 terminals show the supplied Cyberpunk Braille logo before downloading.
+Narrow terminals and redirected output use a compact caption. `NO_COLOR` suppresses
+banner colors.
 
 | Installed content | Location |
 | --- | --- |
@@ -179,7 +183,7 @@ occupied foreign paths are refused before installation changes the desktop.
 
 </details>
 
-## // Usage and customization
+## Usage and customization
 
 Select **Cyberpunk** through Omarchy's normal theme picker. Other themes restore
 native desktop services. The project follows your existing Omarchy keybindings.
@@ -242,13 +246,16 @@ selected in a Wayland terminal. Off-theme, scripted sudo,
 
 ### Palette
 
-For palette development, use a checkout and edit `theme/colors.toml`, then render
-and reapply. Release updates deliberately protect modified installed files.
+For palette development, edit `theme/colors.toml` in the checkout and render it:
 
 ```sh
 scripts/render-palette --write
-omarchy theme set cyberpunk
+./dev preview
 ```
+
+This previews the checkout; the installed release stays independent. Reapplying
+Cyberpunk through Omarchy selects the installed palette, not the edited checkout.
+Release updates deliberately protect modified installed files.
 
 Omarchy's normal theme/background switching semantics still apply. To explicitly
 return to the default wallpaper:
@@ -257,7 +264,7 @@ return to the default wallpaper:
 omarchy theme bg set "$HOME/.local/state/omarchy/current/theme/backgrounds/01.png"
 ```
 
-## // Recovery and removal
+## Recovery and removal
 
 Inspect or reconcile the selected theme and saved choices:
 
@@ -277,7 +284,7 @@ installed theme/plugin/runtime files, hooks, the CLI link and exact Bash stanza.
 Preferences and private backups are retained. Foreign files, edited markers and
 different active clones are protected. Development checkouts remain untouched.
 
-## // Status and development
+## Status and development
 
 **47 regression tests** and live desktop/auth/lifecycle checks passed on the
 inspected setup. Native idle locking, display blank/wake and controlled
@@ -305,6 +312,30 @@ scripts/build-lock --check
 scripts/verify --check
 ```
 
+### Develop while using the release
+
+Keep the checkout under `~/Projects/omarchy-cyberpunk/` and edit it normally. The
+installed `cyberpunk` command continues to use the release; checkout edits do not
+change your daily desktop.
+
+```sh
+./dev test
+./dev preview                      # Offline lock/sudo/Polkit previews
+./dev preview desktop              # Private desktop-component preview
+./dev build                        # Local v0.0.0 archive, not installed/published
+./dev build v0.1.2                  # Explicit local candidate version
+```
+
+Generated previews remain under ignored `preview/` and `showcase/`; local archives
+and checksums go to ignored `dist/dev/`. Renderer options can follow the preview
+type, for example `./dev preview auth --lock-wallpaper 11.png`. Stage any new runtime
+files in Git before building so the packager includes them.
+
+Production and development providers share IDs, so a complete live development
+installation belongs in a **separate Omarchy user/session or VM**. Tests use an
+isolated HOME/native-API simulator, auth previews never authenticate, and the private
+desktop preview only covers the display temporarily.
+
 <details>
 <summary>Development checkout installation</summary>
 
@@ -326,7 +357,7 @@ The showcase uses `06`, `07`, `09`, `10`, `11` and `12`. See
 [media reproduction instructions](docs/media/README.md) for the exact renderer
 commands and source/artwork hashes. Working captures stay local and ignored.
 
-## // Credits
+## Credits
 
 - **Omarchy / Quickshell / Hyprland** — native platform and upstream components.
 - **CyberArch-Shell** — visual inspiration for menu presentation; its code/artwork

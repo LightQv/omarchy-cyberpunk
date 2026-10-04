@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 # Small bootstrap: application code always comes from a checksummed tagged release.
 set -euo pipefail
+banner() {
+  # The supplied UTF-8 Braille artwork is kept literal: no escape processing.
+  # Redirected output and narrow/non-UTF-8 terminals get the compact caption.
+  local width locale=${LC_ALL:-${LC_CTYPE:-${LANG:-}}}
+  width=$(tput cols 2>/dev/null || printf '80')
+  if [[ -t 1 && ${TERM:-dumb} != dumb && ${locale,,} == *utf*8* && $width =~ ^[0-9]+$ && $width -ge 61 ]]; then
+    if [[ -z ${NO_COLOR+x} ]]; then printf '\033[93m'; fi
+    cat <<'LOGO'
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀⡔⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡠⢚⣉⣠⡽⠂⠀⠀⠀⠀⡰⢋⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⢴⡆⠀⠀
+⠀⠀⠀⠀⠀⢀⡤⠐⢊⣥⠶⠛⠁⢀⠄⡆⣠⠤⣤⠞⢠⠿⢥⡤⠀⠀⠠⢤⠀⠀⠀⠤⠤⠤⡄⢠⠤⠄⠤⠀⠀⠀⠒⣆⡜⣿⣄⠀⡤⢤⠖⣠⣀⠤⢒⣭⠶⠛⠃⠀⠀
+⢀⣀⡠⢴⣎⣥⣴⣾⣟⡓⠒⠒⠒⠺⣄⡋⢀⡾⢃⣴⢖⣢⣞⢁⣋⣉⣹⠏⠚⠛⢛⣉⣤⡴⢞⠃⣰⠾⠟⣛⣩⢵⢶⡟⣰⠇⠘⡼⢡⡟⣀⡋⢵⡞⠋⠁⠀⠀⠀⠀⠀
+⠈⠢⠄⠤⠤⠤⠤⠤⠴⠤⠴⠶⠶⢾⠟⣱⡿⢤⢿⣕⠾⣿⣿⣩⡭⢤⠞⣰⠶⢤⣀⡉⠓⢾⡍⣠⠴⠾⠛⠹⠡⣟⡁⢰⢏⣼⡇⢰⣿⢀⠟⠳⣤⣌⣦⡀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡠⢃⡼⠋⠛⠾⠚⠁⠀⠈⠉⠀⠀⠸⣄⠏⠀⠀⠈⠙⠓⡟⣰⠏⠀⠀⠀⠘⠾⠛⠳⠞⠉⠁⠙⠋⠙⠚⠀⠀⠀⠙⠛⢿⣷⣤⣀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣜⡵⠟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⢏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠓⢿⣕⡄
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⣯⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡼⠃
+LOGO
+    if [[ -z ${NO_COLOR+x} ]]; then printf '\033[0m'; fi
+  fi
+  printf '\nOMARCHY CYBERPUNK · %s\n\n' "$1"
+}
 main() {
   for command in curl python sha256sum mktemp; do
     command -v "$command" >/dev/null || { printf 'Missing dependency: %s\n' "$command" >&2; return 1; }
@@ -12,12 +33,14 @@ main() {
       "https://api.github.com/repos/$repo/releases/latest" | python -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
   fi
   [[ $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { printf 'Invalid release version\n' >&2; return 1; }
+  banner "$version"
   local temporary asset="omarchy-cyberpunk-$version.tar.gz" base="https://github.com/$repo/releases/download/$version"
   temporary=$(mktemp -d)
   trap "rm -rf -- $(printf '%q' "$temporary")" EXIT
   printf 'Downloading Cyberpunk %s…\n' "$version"
   curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --connect-timeout 15 --max-time 300 "$base/$asset" -o "$temporary/$asset"
   curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --connect-timeout 15 --max-time 120 "$base/SHA256SUMS" -o "$temporary/SHA256SUMS"
+  printf 'Verifying archive…\n'
   python - "$temporary" "$asset" <<'PY'
 import hashlib, pathlib, sys, tarfile
 root = pathlib.Path(sys.argv[1]); name = sys.argv[2]
@@ -35,8 +58,10 @@ with tarfile.open(root / name) as archive:
             raise SystemExit("Unsafe release archive member")
     archive.extractall(root, filter="data")
 PY
+  printf 'Installing…\n'
   bash "$temporary/${asset%.tar.gz}/install"
   rm -rf -- "$temporary"
   trap - EXIT
+  printf '\nReady.\n\n  cyberpunk status\n  cyberpunk enable menu\n\n'
 }
 main "$@"

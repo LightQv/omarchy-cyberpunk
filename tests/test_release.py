@@ -197,6 +197,9 @@ else:
         self.assertEqual(list(temporary.iterdir()), [], result.stdout + result.stderr)
         self.assertEqual((self.fixture.home / "bootstrap-installed").exists(), not (unsafe or mismatch))
         self.assertEqual(result.returncode == 0, not (unsafe or mismatch), result.stdout + result.stderr)
+        self.assertIn('OMARCHY CYBERPUNK · v0.1.0', result.stdout)
+        self.assertNotIn('\x1b', result.stdout)
+        self.assertEqual('Ready.' in result.stdout, not (unsafe or mismatch))
 
     def test_bootstrap_downloads_latest_and_cleans_temporary_files(self):
         self.bootstrap()

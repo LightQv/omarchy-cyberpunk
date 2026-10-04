@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Checkout-local tools; never install, update or switch the production providers.
+set -euo pipefail
+root=$(dirname "$(realpath -e -- "${BASH_SOURCE[0]}")")
+export PYTHONDONTWRITEBYTECODE=1
+usage() {
+  printf '%s\n' 'Usage: ./dev <command>' '' \
+    '  test                       Run the isolated regression suite' \
+    '  preview [auth|desktop]     Render checkout code (default: offline auth)' \
+    '  build [vX.Y.Z]             Build a local archive under dist/dev/' \
+    '  --help                    Show this help' '' \
+    'Auth preview options after auth are passed to the renderer.' \
+    'Desktop preview briefly covers the display using a private HOME/bus.' \
+    'Build defaults to v0.0.0. It does not install or publish the archive.' \
+    'Full live integration testing needs a separate Omarchy user/session.'
+}
+case ${1:---help} in
+  --help|-h|help) [[ $# -le 1 ]] || { usage; exit 1; }; usage ;;
+  test)
+    [[ $# == 1 ]] || { usage; exit 1; }
+    exec python -B -m unittest discover -s "$root/tests" -v ;;
+  preview)
+    shift
+    kind=${1:-auth}
+    if [[ $# -gt 0 ]]; then shift; fi
+    case $kind in
+      auth)
+        if [[ $# == 1 && ( $1 == --help || $1 == -h ) ]]; then
+          exec python -B "$root/scripts/preview-final" "$@"
+        fi
+        python -B "$root/scripts/preview-final" "$@"
+        python -B "$root/scripts/verify-final-previews" ;;
+      desktop)
+        [[ $# == 0 ]] || { usage; exit 1; }
+        exec python -B "$root/scripts/preview-desktop" ;;
+      *) usage; exit 1 ;;
+    esac ;;
+  build)
+    [[ $# -le 2 ]] || { usage; exit 1; }
+    version=${2:-v0.0.0}
+    [[ $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { printf 'Use vX.Y.Z\n' >&2; exit 1; }
+    mkdir -p "$root/dist/dev"
+    exec python -B "$root/scripts/package-release" "$version" "$root/dist/dev" ;;
+  *) usage; exit 1 ;;
+esac
