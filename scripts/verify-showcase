@@ -34,7 +34,8 @@ def main():
                 "stream=width,height,avg_frame_rate:format=duration", "-of", "json", str(path)]))
             video = metadata["streams"][0]
             expected_fps = "60/1" if name == "presentation.mp4" else "20/1" if name == "menu.mp4" else "50/1"
-            if (video["width"], video["height"], video["avg_frame_rate"]) != (1920, 1080, expected_fps):
+            size = manifest.get('presentation', {}).get('resolution', [1920,1080]) if name == 'presentation.mp4' else [1920,1080]
+            if (video["width"], video["height"], video["avg_frame_rate"]) != (*size, expected_fps):
                 raise ValueError(f"Unexpected video format: {name}")
             if float(metadata["format"]["duration"]) < 1.4:
                 raise ValueError(f"Incomplete clip: {name}")

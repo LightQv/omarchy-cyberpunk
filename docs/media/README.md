@@ -24,13 +24,19 @@ third-party widgets are personal configuration, not installed by this theme.
 
 ## Motion
 
-[Watch the continuous presentation — 73 seconds, 1920×1080, 60 FPS](presentation.mp4)
-([release download](https://github.com/LightQv/omarchy-cyberpunk/releases/download/v0.1.4/presentation.mp4)).
-It shows the live top bar, demo terminal borders, scheme inversion, menu/Apps,
-wallpaper picker, private sample notifications, sample volume/mute OSD and real
-sudo failure/retry/success followed by Polkit success. The user entered passwords
-directly into masked dialogs; no credential values were logged. Audio and mouse
-pointer are excluded. The exported MP4 is stream-copied, without cuts or re-encoding.
+https://github.com/user-attachments/assets/2f13bbd8-1528-4b66-b1b4-9676b275b185
+
+[Full-quality continuous presentation — 60 seconds, 2560×1440, 60 FPS](presentation.mp4).
+It starts on wallpaper 06, browses the menu/submenu and searches for Ghostty, shows
+the installer logo and real component status at normal terminal font size, switches
+focus and scheme, steps through the wallpaper carousel to 11, then shows one
+private sample notification, gradual volume/mute/unmute OSD and real Polkit
+failure/retry/success. Passwords were entered directly into masked dialogs; no
+credential values were logged. Audio and mouse pointer are excluded.
+
+The full-quality MP4 is stream-copied without cuts or re-encoding. The inline GitHub
+attachment is a 7.19 MB H.264, two-pass 950 kbit/s copy made to fit GitHub's 10 MB
+free-plan upload limit. It preserves the complete 60.15-second take, 1440p and 60 FPS.
 
 Compact GIFs are embedded in the main README. Full-resolution, silent H.264 clips:
 
@@ -64,18 +70,21 @@ Working renders remain ignored under `preview/` and `showcase/`.
 ### Live presentation controller
 
 ```sh
-python -B scripts/presentation.py --rehearse # Private technical take, no auth prompts
-python -B scripts/presentation.py           # Real take: user participation required
-python -B scripts/export-presentation       # Only after reviewing the footage
+python -B scripts/presentation.py --rehearse --take rehearsal1 # No auth prompts
+python -B scripts/presentation.py --take organic              # User participation
+python -B scripts/export-presentation --take organic          # After reviewing footage
 ```
 
 The controller uses an empty workspace and restores workspace, wallpaper, scheme
 and DND afterward. Sample notifications run on a private HOME/bus; actual audio
-settings are untouched. Sudo and Polkit authenticate only `/usr/bin/true`, making
-no privileged system changes. It waits up to 150 seconds at each authentication
-step, then aborts and cleans up on failure. Take files are not overwritten; an
+settings are untouched. Polkit authenticates only `/usr/bin/true`, making no
+privileged system changes. It waits up to 150 seconds for failure/retry/success,
+then aborts and cleans up on failure. Take files are not overwritten; an
 optional `--take NAME` suffix is available for retries. Raw recordings, logs and
 rehearsals remain ignored under `showcase/presentation/`.
+
+The terminal content helper is `scripts/presentation-terminal.py`; no font-size
+override is used. Menu/carousel movement and typed search use paced keyboard input.
 
 `capture-desktop` briefly selects wallpaper `11.png` and an unused workspace,
 captures the actual top bar with no open windows, then restores the original

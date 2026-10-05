@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shlex
 import subprocess
 import time
 
@@ -58,6 +59,7 @@ def main():
     if result['locked'] or result['requested'] or result['sessionLocked']:
         raise ValueError('Run while unlocked')
     processes, recorder, private_bus, private_shell = [], None, None, None
+    demo_windows = []
     environment = None
     stages = []
     started = None
@@ -66,21 +68,29 @@ def main():
         stages.append({'stage': label, 'seconds': round(time.monotonic() - started, 3)})
         (OUTPUT / (name + '-status.json')).write_text(json.dumps(stages, indent=2) + '\n')
         print(label, flush=True)
-    def terminal(title, text, auth=False):
-        code = 'import time; print(' + repr(text) + ', flush=True); time.sleep(300)'
-        command = ['ghostty', '--title=' + title, '--font-size=18', '-e', 'python', '-c', code]
-        if auth:
-            done = OUTPUT / 'sudo-result.json'
-            done.unlink(missing_ok=True)
-            body = "printf '\\n  PRIVILEGED ACCESS\\n\\n  Enter one incorrect password, then the correct password.\\n'; "
-            body += 'SUDO_ASKPASS="$1" sudo -A -k /usr/bin/true; result=$?; '
-            body += 'printf \'{"exit":%s}\\n\' "$result" > "$2"; sleep 1; exit "$result"'
-            command = ['ghostty', '--title=Cyberpunk // Privileged Access', '--font-size=18', '-e',
-                       'bash', '--noprofile', '--norc', '-c', body, '--',
-                       str(HOME / '.local/share/omarchy-cyberpunk/askpass/cyberpunk-askpass'), str(done)]
-        process = subprocess.Popen(command, stdout=log, stderr=log, start_new_session=True)
-        processes.append(process)
-        return process
+    def clients():
+        return [client for client in json.loads(run('hyprctl', '-j', 'clients')) if client['workspace']['id'] == empty]
+    def wait_for(predicate, seconds=12):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            value = predicate()
+            if value:
+                return value
+            pause(.1)
+        raise ValueError('Presentation UI did not settle')
+    def key(name, delay=.3):
+        run('wtype', '-k', name)
+        pause(delay)
+    def type_text(text):
+        for index, char in enumerate(text):
+            run('wtype', char)
+            pause((.13, .19, .11, .24)[index % 4])
+    def health():
+        return json.loads(run('omarchy-shell', 'shell', 'call', 'omarchy.menu', 'health', '{}'))
+    def focus(address):
+        run('hyprctl', 'dispatch', f'hl.dsp.focus({{ window = "address:{address}" }})')
+    def close(address):
+        run('hyprctl', 'dispatch', f'hl.dsp.window.close({{ window = "address:{address}" }})')
     try:
         # A private notification server keeps demonstration messages out of real
         # history. No real notification contents are read or replayed.
@@ -111,44 +121,64 @@ def main():
         private_shell = subprocess.Popen(['qs', '-p', str(qml)], env=environment, stdout=log, stderr=log)
         run('omarchy-shell', 'notifications', 'setDnd', 'on')
         run(CLI, 'scheme', 'set', 'default')
-        run('omarchy', 'theme', 'bg', 'set', str(HOME / '.config/omarchy/themes/cyberpunk/backgrounds/11.png'))
+        run('omarchy', 'theme', 'bg', 'set', str(CURRENT / 'theme/backgrounds/06.png'))
         workspace(empty)
         pause(2)
         if json.loads(run('hyprctl', '-j', 'activeworkspace'))['windows']:
             raise ValueError('Demo workspace is not empty')
-        recorder = subprocess.Popen(['gpu-screen-recorder', '-w', monitor['name'], '-s', '1920x1080',
+        recorder = subprocess.Popen(['gpu-screen-recorder', '-w', monitor['name'], '-s', '2560x1440',
             '-f', '60', '-fm', 'cfr', '-k', 'h264', '-q', 'very_high', '-cursor', 'no',
             '-fallback-cpu-encoding', 'yes', '-o', str(path)], stdout=log, stderr=log)
         pause(1)
         if recorder.poll() is not None:
             raise ValueError('Recorder did not start; see private log')
         started = time.monotonic()
-        stage('Opening desktop'); pause(3)
-        first = terminal('Cyberpunk // Signal', '\n  CYBERPUNK\n\n  SIGNAL ESTABLISHED\n\n  Native Omarchy foundations.\n  Your component mix.\n')
-        pause(2)
-        second = terminal('Cyberpunk // Interface', '\n  INTERFACE ONLINE\n\n  RED / TURQUOISE\n\n  Persistent component controls\n  Switchable interface scheme\n')
-        pause(2)
-        stage('Window borders and inverted scheme')
-        run(CLI, 'scheme', 'set', 'inverted'); pause(3)
-        run(CLI, 'scheme', 'set', 'default'); pause(2)
-        os.killpg(first.pid, signal.SIGTERM); os.killpg(second.pid, signal.SIGTERM); pause(1)
+        stage('Opening desktop on wallpaper 06'); pause(2.6)
         stage('Command menu')
-        run('omarchy', 'menu', 'summon', 'root'); pause(2)
-        run('wtype', '-k', 'Down'); pause(.6)
-        run('wtype', '-k', 'Down'); pause(.6)
-        run('wtype', 'style'); pause(1.5)
-        run('omarchy', 'menu', 'close'); pause(.5)
-        stage('Applications')
-        run('omarchy', 'menu', 'summon', 'apps'); pause(2)
-        run('wtype', 'terminal'); pause(1.5)
-        run('omarchy', 'menu', 'close'); pause(.5)
-        stage('Wallpaper picker')
-        picker = subprocess.Popen(['omarchy', 'theme', 'bg-switcher'], stdout=subprocess.PIPE, stderr=log, text=True,
-                                  start_new_session=True)
+        run('omarchy', 'menu', 'summon', 'root')
+        wait_for(lambda: health()['opened'] and health()['keyFocus']); pause(.7)
+        for delay in (.36, .31, .54, .28, .5):
+            key('Down', delay)
+        key('Up', .43); key('Down', .6)
+        key('Right', .8)
+        wait_for(lambda: health()['activeMenu'] != 'root')
+        for direction, delay in (('Down', .4), ('Down', .55), ('Up', .65)):
+            key(direction, delay)
+        key('Left', .8)
+        wait_for(lambda: health()['activeMenu'] == 'root')
+        stage('Ghostty search and launch')
+        type_text('ghostty')
+        wait_for(lambda: health()['rows'] > 0); pause(.75)
+        key('Down', .25); key('Up', .4); key('Return', .35)
+        first = wait_for(lambda: clients()[0] if len(clients()) == 1 else None)
+        demo_windows.append(first['address'])
+        focus(first['address'])
+        helper = ROOT / 'scripts/presentation-terminal.py'
+        run('wtype', 'exec python -B ' + shlex.quote(str(helper)) + ' logo'); key('Return', .8)
+        wait_for(lambda: any('Cyberpunk // Logo' in client['title'] for client in clients()))
+        stage('Logo and component status at normal terminal font size')
+        process = subprocess.Popen(['ghostty', '--title=Cyberpunk // Component Status', '-e',
+                                    'python', '-B', str(helper), 'status'], stdout=log, stderr=log, start_new_session=True)
+        processes.append(process)
+        second = wait_for(lambda: next((client for client in clients() if client['address'] != first['address']), None))
+        demo_windows.append(second['address'])
+        pause(1.1); focus(first['address']); pause(.8); focus(second['address']); pause(.8)
+        stage('Interface scheme inversion and window borders')
+        run(CLI, 'scheme', 'set', 'inverted'); pause(1)
+        focus(first['address']); pause(.8); focus(second['address']); pause(.8)
+        run(CLI, 'scheme', 'set', 'default'); pause(.8)
+        close(second['address']); pause(.45); close(first['address']); pause(.7)
+        wait_for(lambda: not clients())
+        stage('Wallpaper carousel 06 through 11')
+        picker = subprocess.Popen(['omarchy', 'menu', 'images', '--selected', str(CURRENT / 'theme/backgrounds/06.png'),
+                                   '--show-labels', str(CURRENT / 'theme/backgrounds')], stdout=subprocess.PIPE, stderr=log, text=True,
+                                   start_new_session=True)
         processes.append(picker)
-        pause(2)
-        run('wtype', '-k', 'Right'); pause(1.5)
-        run('wtype', '-k', 'Return'); pause(2)
+        pause(1.2)
+        for delay in (.65, .85, .6, 1.1, .9):
+            key('Right', delay)
+        key('Left', .7); key('Right', 1.0)
+        key('Return', .6)
         if picker.poll() is None:
             raise ValueError('Wallpaper picker did not complete')
         selection = picker.stdout.read().strip()
@@ -156,45 +186,40 @@ def main():
         selected = Path(selection).resolve()
         if selected.parent != (CURRENT / 'theme/backgrounds').resolve():
             raise ValueError('Picker returned an unexpected wallpaper')
-        run('omarchy', 'theme', 'bg', 'set', str(selected)); pause(2)
-        stage('Private sample notifications')
-        run('notify-send', '-a', 'Cyberpunk', '-t', '4500', 'Signal established', 'Your desktop. Your component mix.', env=environment)
-        pause(1)
-        run('notify-send', '-a', 'Cyberpunk', '-t', '3500', 'Interface online', 'Native notifications with a Cyberpunk presentation.', env=environment)
-        pause(5)
-        run('qs', 'ipc', '-p', str(qml), 'call', 'notifications', 'dismissAll', env=environment)
-        pause(.6)
+        if selected.name != '11.png':
+            raise ValueError('Carousel did not arrive at wallpaper 11')
+        run('omarchy', 'theme', 'bg', 'set', str(selected)); pause(1.1)
+        stage('One private sample notification')
+        run('notify-send', '-u', 'low', '-a', 'Cyberpunk', '-t', '5000', 'Interface online', 'Your desktop. Your component mix.', env=environment)
+        pause(5.6)
         stage('Volume and mute OSD')
         # Native OSD payloads illustrate feedback without changing actual audio.
-        for icon, value, duration in (('volume', 35, 2000), ('volume', 65, 2500), ('mute', 0, 2500)):
+        for icon, value, duration, delay in (('volume', 35, 1600, .45), ('volume', 40, 1600, .35),
+             ('volume', 45, 1600, .5), ('volume', 50, 1600, .4), ('volume', 55, 1600, 1.2),
+             ('mute', 0, 1800, 1.6), ('volume', 55, 1800, 1.8)):
             run('omarchy-shell', 'osd', 'show', json.dumps({'icon': icon, 'value': value, 'duration': duration}))
             if run('omarchy-shell', 'osd', 'state') != 'open':
                 raise ValueError('OSD did not appear')
-            pause(1 if value == 35 else 3)
+            pause(delay)
         if not args.rehearse:
-            stage('Sudo: user enters incorrect password then correct password')
-            terminal('', '', auth=True)
-            done = OUTPUT / 'sudo-result.json'
-            deadline = time.monotonic() + 150
-            while not done.exists():
-                if time.monotonic() > deadline:
-                    raise ValueError('Sudo participation timed out')
-                pause(.2)
-            if json.loads(done.read_text())['exit'] != 0:
-                raise ValueError('Sudo did not succeed; take not accepted')
-            pause(2)
-            stage('Polkit: user enters correct password')
+            stage('Polkit: user enters incorrect password then correct password')
             polkit = subprocess.Popen(['pkexec', '/usr/bin/true'], stdout=log, stderr=log, start_new_session=True)
             processes.append(polkit)
+            deadline = time.monotonic() + 15
+            while 'omarchy-polkit' not in run('hyprctl', '-j', 'layers'):
+                if polkit.poll() is not None or time.monotonic() > deadline:
+                    raise ValueError('No visible Polkit prompt; cached authorization is not a usable demonstration')
+                pause(.15)
             if polkit.wait(timeout=150) != 0:
                 raise ValueError('Polkit did not succeed; take not accepted')
-            pause(2)
-        stage('Closing desktop'); pause(4)
+            pause(1.6)
+        stage('Closing desktop on wallpaper 11'); pause(2.8)
         recorder.send_signal(signal.SIGINT)
         recorder.wait(timeout=15)
         recorder = None
         (OUTPUT / (name + '-result.json')).write_text(json.dumps({'completed': True, 'continuous': True,
-            'cursor': False, 'authentication': not args.rehearse, 'stages': stages}, indent=2) + '\n')
+            'cursor': False, 'authentication': 'polkit-retry' if not args.rehearse else False,
+            'resolution': [2560,1440], 'stages': stages}, indent=2) + '\n')
     finally:
         if recorder is not None and recorder.poll() is None:
             recorder.send_signal(signal.SIGINT)
@@ -203,6 +228,10 @@ def main():
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGTERM)
                 process.wait(timeout=10)
+        addresses = {client['address'] for client in json.loads(run('hyprctl', '-j', 'clients'))}
+        for address in demo_windows:
+            if address in addresses:
+                close(address)
         run('omarchy', 'menu', 'close')
         run('omarchy-shell', 'shell', 'hide', 'omarchy.image-picker')
         run('omarchy-shell', 'osd', 'close')

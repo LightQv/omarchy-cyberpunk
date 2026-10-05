@@ -82,8 +82,7 @@
     "sudo.png": "ac149e2efdfef1ac950dd9d7504b31f4455c1333f0c7c3ecf18dd14126d0784f",
     "volume.png": "ec0d11a2a8c82fcb44d2063357e9cc58d7ead36a4d70712d7b92c17e1aaa6dc4",
     "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883",
-    "presentation.mp4": "9ceb35de16140c0518f05a0eceec8cc6b7bc835fd9ffa82962f86538553bd6d9",
-    "presentation-poster.png": "55d3a8e3d073c52c61dff06380c26f88dda12193801b5ab379110dfd8675dcd9"
+    "presentation.mp4": "847f6aee653f7a2a415f358cba2624e9c992bb1bc65cb00a59654ee4bb2557e9"
   },
   "liveDesktop": {
     "kind": "live Omarchy desktop, actual configured top bar on an empty workspace",
@@ -97,57 +96,63 @@
     "note": "Top-bar widgets reflect the author's setup, not fresh-install defaults."
   },
   "presentation": {
-    "kind": "continuous live desktop capture, cursor excluded; real sudo retry/success and Polkit success",
+    "kind": "continuous live desktop capture, cursor excluded; real Polkit retry/success",
     "version": "v0.1.4",
     "cuts": 0,
     "audio": false,
-    "duration": 73.1,
+    "duration": 60.15,
     "stages": [
       {
-        "stage": "Opening desktop",
+        "stage": "Opening desktop on wallpaper 06",
         "seconds": 0.0
       },
       {
-        "stage": "Window borders and inverted scheme",
-        "seconds": 7.001
-      },
-      {
         "stage": "Command menu",
-        "seconds": 14.28
+        "seconds": 2.6
       },
       {
-        "stage": "Applications",
-        "seconds": 19.674
+        "stage": "Ghostty search and launch",
+        "seconds": 10.067
       },
       {
-        "stage": "Wallpaper picker",
-        "seconds": 23.87
+        "stage": "Logo and component status at normal terminal font size",
+        "seconds": 14.254
       },
       {
-        "stage": "Private sample notifications",
-        "seconds": 31.427
+        "stage": "Interface scheme inversion and window borders",
+        "seconds": 17.169
+      },
+      {
+        "stage": "Wallpaper carousel 06 through 11",
+        "seconds": 22.996
+      },
+      {
+        "stage": "One private sample notification",
+        "seconds": 31.809
       },
       {
         "stage": "Volume and mute OSD",
-        "seconds": 38.067
+        "seconds": 37.413
       },
       {
-        "stage": "Sudo: user enters incorrect password then correct password",
-        "seconds": 45.345
+        "stage": "Polkit: user enters incorrect password then correct password",
+        "seconds": 44.184
       },
       {
-        "stage": "Polkit: user enters correct password",
-        "seconds": 57.15
-      },
-      {
-        "stage": "Closing desktop",
-        "seconds": 68.477
+        "stage": "Closing desktop on wallpaper 11",
+        "seconds": 56.726
       }
+    ],
+    "resolution": [
+      2560,
+      1440
     ],
     "notes": "Clean demonstration terminals; private-bus sample notifications and sample OSD payloads. Actual audio unchanged. Passwords entered by user into masked dialogs.",
     "inputs": {
-      "scripts/presentation.py": "931c97c81725574734de2e0e560a5d8bb5f6137583e060bcc6010503dcaae7aa",
-      "scripts/export-presentation": "2199ebd27ba212f835fb95ad493de93d73b5a73740b3f92c112d1b4b47ead3b9"
-    }
+      "scripts/presentation.py": "af0c201257ca067cf807a0113db43413b1263641c03455d9422a055ae13abce7",
+      "scripts/presentation-terminal.py": "21672f435881880e3ee089a672a55e236b7615b3544ec6c38f5edb7aca951161",
+      "scripts/export-presentation": "cdb7423e8b068d0c9c40a57bbc9a4faaaa81d5679b656c453185ad394d3e21fa"
+    },
+    "attachmentURL": "https://github.com/user-attachments/assets/2f13bbd8-1528-4b66-b1b4-9676b275b185"
   }
 }
