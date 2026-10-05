@@ -11,6 +11,7 @@ usage() {
     '  enable <component|all>  Enable Cyberpunk presentation' \
     '  disable <component|all> Use native presentation' \
     '  check                   Check integration without changes' \
+    '  compatibility [--upstream] [--json]  Audit reviewed Omarchy sources' \
     '  scheme status|toggle    Inspect or invert interface accents' \
     '  scheme set default|inverted  Select interface accents' \
      '  repair                  Apply the selected theme and saved choices' \
@@ -56,6 +57,7 @@ case $1 in
   list) [[ $# == 1 ]] || die 'usage: cyberpunk list'; list_components; exit 0 ;;
   status) [[ $# == 1 ]] || die 'usage: cyberpunk status'; exec python -B "$PROJECT/scripts/preferences.py" status ;;
   check) [[ $# == 1 ]] || die 'usage: cyberpunk check'; exec "$PROJECT/scripts/verify" --check ;;
+  compatibility) shift; exec python -B "$PROJECT/scripts/compatibility.py" "$@" ;;
   repair) [[ $# == 1 ]] || die 'usage: cyberpunk repair'; lifecycle_lock; "$PROJECT/scripts/verify" --repair ;;
   version) [[ $# == 1 ]] || die 'usage: cyberpunk version';
     if [[ -f $PROJECT/release.json ]]; then jq -r .version "$PROJECT/release.json"; else printf 'development checkout\n'; fi ;;

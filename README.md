@@ -134,6 +134,11 @@ Pillow, FFmpeg and ImageMagick are only needed for development preview/thumbnail
 The session-lock generator checks the inspected upstream release. An Omarchy
 update that changes that contract needs review before custom-lock activation.
 
+[Omarchy compatibility tracking and upgrade procedure →](docs/COMPATIBILITY.md)
+Cyberpunk v0.1.5 adds `cyberpunk compatibility [--upstream] [--json]`
+and a general source audit to `cyberpunk check`. The repository's daily release
+monitor opens a review issue when a newer stable Omarchy release appears.
+
 ## Install
 
 Install the latest versioned release with one command, as your desktop user:

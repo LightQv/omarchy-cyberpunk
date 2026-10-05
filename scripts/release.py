@@ -109,7 +109,8 @@ def validate_payload(payload):
     actual.pop("release.json", None)
     if actual != release["files"] or any("link" in entry for entry in actual.values()):
         raise ValueError("Release contents differ from the packaged manifest")
-    if not release["version"].startswith("v") or release["omarchy"] != "4.0.4-1":
+    baseline = json.loads(Path(__file__).with_name("omarchy-baseline.json").read_text())
+    if not release["version"].startswith("v") or release["omarchy"] != baseline["packageVersion"]:
         raise ValueError("Unsupported release contract")
     return release
 

@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -11,8 +12,9 @@ OUTPUT = Path(__file__).resolve().parent.parent / "lock-plugin/Service.qml"
 UPSTREAM_VIEW = UPSTREAM.with_name("LockView.qml")
 OUTPUT_VIEW = OUTPUT.with_name("StockLockView.qml")
 # Pin the inspected release; an upstream authentication change needs a diff review.
-STOCK_SHA256 = "3f0a265a09f7957e8f5d74666595d3136ec64899c414426190460f9e2098e701"
-VIEW_SHA256 = "9b174cf3ba8569dede528968be38994491ac73d9ca708f7e9451beeec7b4d066"
+BASELINE = json.loads(Path(__file__).with_name("omarchy-baseline.json").read_text())
+STOCK_SHA256 = BASELINE["files"]["shell/plugins/lock/Service.qml"]
+VIEW_SHA256 = BASELINE["files"]["shell/plugins/lock/LockView.qml"]
 
 
 def once(text: str, old: str, new: str) -> str:

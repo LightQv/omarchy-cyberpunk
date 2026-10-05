@@ -1,5 +1,9 @@
 # Provenance
 
+The upstream package baseline, original paths, copied-file mappings and SHA-256
+hashes are recorded in `scripts/omarchy-baseline.json`. See
+`docs/COMPATIBILITY.md` for source auditing and new-release acceptance.
+
 - `menu-plugin/Menu.qml`, `MenuModel.js`, `BarWidget.qml`: copied from the
   installed Omarchy 4.0.4-1 menu plugin and modified under Omarchy's MIT
   license; its copyright and license notice are retained in `LICENSE`.

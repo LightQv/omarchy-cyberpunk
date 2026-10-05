@@ -132,6 +132,8 @@ class LifecycleTest(unittest.TestCase):
                             ignore=shutil.ignore_patterns("backgrounds", "__pycache__"))
         for script in ("render-palette", "build-lock"):
             (self.project / "scripts" / script).write_text("#!/bin/bash\nexit 0\n")
+        # Platform compatibility is tested separately with changed/missing sources.
+        (self.project / "scripts/compatibility.py").write_text("raise SystemExit(0)\n")
         art = self.project / "theme/backgrounds"
         art.mkdir()
         for number in range(1, 14):
@@ -180,6 +182,17 @@ class LifecycleTest(unittest.TestCase):
         self.assertEqual(self.bashrc.read_text(), "# user's configuration\nexport KEEP=1\n")
         self.assertEqual(self.bashrc.stat().st_mode & 0o777, 0o640)
         self.assertTrue((self.project / ".state/safe-mode").exists())
+
+    def test_source_audit_failure_blocks_check_without_changing_providers(self):
+        self.run_script("install-dev")
+        before = self.config.read_bytes()
+        (self.project / "scripts/compatibility.py").write_text("raise SystemExit(1)\n")
+        result = self.run_script("cyberpunk", "check", success=False)
+        self.assertIn("compatibility baseline changed", result.stderr)
+        self.assertEqual(self.config.read_bytes(), before)
+        # A source mismatch must not prevent restoring providers via repair.
+        self.run_script("cyberpunk", "repair")
+        self.assertEqual(self.config.read_bytes(), before)
 
     def test_clean_first_install_and_idempotent_removal(self):
         backup = self.home / ".local/state/omarchy-cyberpunk-backup"

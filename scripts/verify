@@ -24,6 +24,9 @@ if [[ $mode == --removed ]]; then
   exit 0
 fi
 installed || die 'project links/hook are missing or no longer owned by this project'
+if [[ $mode == --check ]]; then
+  python -B "$PROJECT/scripts/compatibility.py" || die 'Omarchy compatibility baseline changed; review upstream'
+fi
 if [[ -f $PROJECT/release.json ]]; then
   python -B "$PROJECT/scripts/scheme.py" check || die 'Cyberpunk scheme output is stale'
 else

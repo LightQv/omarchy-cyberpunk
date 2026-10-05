@@ -16,6 +16,7 @@ RUNTIME_SCRIPTS = {
     "common.sh", "cyberpunk", "preferences.py", "verify", "install-dev", "uninstall-dev",
     "backup-baseline.py", "manage-bashrc.py", "interactive-sudo.sh", "render-palette", "build-lock",
     "queue-lock-transition", "wait-unlocked", "release.py", "installer_ui.py", "scheme.py",
+    "compatibility.py", "omarchy-baseline.json",
 }
 DIRECTORIES = {"theme", "askpass", "hooks", "menu-plugin", "polkit-plugin",
                "notifications-plugin", "osd-plugin", "lock-plugin"}
@@ -29,7 +30,7 @@ def main():
     if not output.is_dir():
         raise ValueError("Release output directory must already exist")
     names = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
-    names += ["install", "install.sh", "scripts/release.py"]
+    names += ["install", "install.sh", "scripts/release.py", "scripts/compatibility.py", "scripts/omarchy-baseline.json"]
     selected = sorted({name for name in names if name and (
         name.split("/")[0] in DIRECTORIES or name in ("LICENSE", "THIRD_PARTY.md", "install", "install.sh")
         or name.startswith("scripts/") and name.removeprefix("scripts/") in RUNTIME_SCRIPTS)})
@@ -42,7 +43,8 @@ def main():
         mode = 0o755 if path.stat().st_mode & 0o111 or name in ("install", "scripts/release.py") else 0o644
         blobs[name] = path.read_bytes()
         files[name] = {"sha256": hashlib.sha256(blobs[name]).hexdigest(), "mode": mode}
-    blobs["release.json"] = (json.dumps({"version": version, "omarchy": "4.0.4-1", "files": files}, indent=2) + "\n").encode()
+    baseline = json.loads((ROOT / "scripts/omarchy-baseline.json").read_text())
+    blobs["release.json"] = (json.dumps({"version": version, "omarchy": baseline["packageVersion"], "files": files}, indent=2) + "\n").encode()
     name = f"omarchy-cyberpunk-{version}"
     archive = output / (name + ".tar.gz")
     with archive.open("wb") as target, gzip.GzipFile(filename="", mode="wb", fileobj=target, mtime=0) as compressed:
