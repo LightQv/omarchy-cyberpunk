@@ -24,6 +24,10 @@ control = json.loads((home / "control.json").read_text())
 args = sys.argv[1:]
 command = " ".join(args)
 binary = pathlib.Path(sys.argv[0]).name
+if binary == "hyprctl":
+    if args == ["-j", "layers"]: print("{}")
+    else: sys.exit(2)
+    sys.exit(0)
 if binary == "systemctl":
     sys.exit(0 if (home / "transition-queued").exists() else 1)
 if binary == "systemd-run":
@@ -150,7 +154,7 @@ class LifecycleTest(unittest.TestCase):
         self.control.write_text("{}")
         binary = base / "bin"
         binary.mkdir()
-        for name in ("omarchy", "omarchy-shell", "omarchy-hyprland-session-locked", "systemctl", "systemd-run"):
+        for name in ("omarchy", "omarchy-shell", "omarchy-hyprland-session-locked", "systemctl", "systemd-run", "hyprctl"):
             path = binary / name
             path.write_text(FAKE)
             path.chmod(0o755)

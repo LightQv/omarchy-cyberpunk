@@ -46,6 +46,12 @@ def theme_colors() -> dict[str, str]:
         for key in defaults:
             if isinstance(palette.get(key), str) and QColor(palette[key]).isValid():
                 defaults[key] = palette[key]
+        state = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'omarchy-cyberpunk/scheme.json'
+        if state.is_file():
+            import json
+            if json.loads(state.read_text()).get('scheme') == 'inverted':
+                defaults['red'], defaults['cyan'] = defaults['cyan'], defaults['red']
+                defaults['bright_red'] = defaults['red']
     except (OSError, ValueError, tomllib.TOMLDecodeError):
         pass
     return defaults

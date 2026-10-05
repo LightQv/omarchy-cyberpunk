@@ -56,18 +56,19 @@
       "lock-plugin/SignalFault.qml": "8e568e830070861345b3aa71341ecb8a21a58c8ff445c1329eff1609b1be087d",
       "lock-plugin/SignalRhythm.qml": "318413d3bd922a0bfef10aef7a5cc3378d963c10ba49150eddab92afcd082496",
       "lock-plugin/PreviewPalette.js": "27d1972f2c8c6c163f591bcec5697953c629939aac29d2595f04e05e4d0d35af",
-      "askpass/askpass.py": "a2205f36e37d6d8933d824ba3fc2389334db09585cfbe28415bdf9c723ef9b57",
+      "askpass/askpass.py": "867ef14b4a30cb565cd4814e7b0287b3e91920aa1706913a566e3d0315d99d82",
       "askpass/FaultBackdrop.qml": "aabc2ddf05e478b2810e256bad21207bc1cd521f7bb8a1999d5485344a97f395"
     }
   },
   "files": {
     "apps.png": "cffb05183b5a8dac9287d08142483b86d5105631924967d012bac0edd9ba6102",
     "auth.gif": "9f89aa75a0dd94b7b4ec99492e44b2f4c87690e673f9bbc85964ed7dc31cfc22",
+    "desktop.png": "618a06a920a4c789240f6537f9b16f6ac3aec9c15d808f70f1eba58169cc809d",
     "hero.png": "bdcd135a0452b929dea2f52d3010c20ddfc047b1073bb1c346e8ecbdaba35f34",
     "keybindings.png": "67ac17a1a426d713316aa4d9d136d46023a6dcb43037e761e0c88656cba164aa",
     "lock-detail.png": "7cde9313aef12f9b4a46d255b4172f733a99634a6e29434c69429cf05a3e2333",
-    "lock.mp4": "783ee0713f216d31b07fda66efd7931e8ebd882dfcf61a22b9279c51e5419a7c",
-    "lock.png": "0c1fd9a438e5e691210e1eb9e8cb7bc4f028b82b8dd59ba0d29ba459f36b3b0b",
+    "lock.mp4": "5fba32f4529f787b1162c4420958f96fe7f628f86352e9a379f310f4ab051196",
+    "lock.png": "6e61107091f4e1431a823ec6a02489d155c5c0408875d4940833c9b50100dd6b",
     "menu.gif": "e724d69b35e77e3e23d14177f52a02b84d3cb1dc9c340638f91cfdf483761754",
     "menu.mp4": "8993986010e41cba41751ea65c66eb84ac5e56ae97b3f0d1f641f0cf3fd18459",
     "menu.png": "935106f45c76c70ad6c403e88889f8df2fa27d4fa65d5cc2a877e9d5ef3c81b0",
@@ -77,11 +78,10 @@
     "polkit.mp4": "4426f44ec56c2f89225830ff19d03326733abc9060a9f7f2fc0204c0f88687f6",
     "polkit.png": "75f8e372bbb5c22ee181b1e0f0e78595e1e54ebc492a549bf1e5111719875211",
     "sudo-detail.png": "758b932228090948825f5f3b8306a375b503a4c55e9e1e2000c1042ae9c2503a",
-    "sudo.mp4": "430f32aa537f119b02a21254ddec8104fc4a23a3223f56bdf1eeabbbd135fe76",
+    "sudo.mp4": "0ca73e16f30ebf7803c0bf825a6a97ed613176a99ffe5f52b22698cc90ddca47",
     "sudo.png": "ac149e2efdfef1ac950dd9d7504b31f4455c1333f0c7c3ecf18dd14126d0784f",
     "volume.png": "ec0d11a2a8c82fcb44d2063357e9cc58d7ead36a4d70712d7b92c17e1aaa6dc4",
-    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883",
-    "desktop.png": "618a06a920a4c789240f6537f9b16f6ac3aec9c15d808f70f1eba58169cc809d"
+    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883"
   },
   "liveDesktop": {
     "kind": "live Omarchy desktop, actual configured top bar on an empty workspace",

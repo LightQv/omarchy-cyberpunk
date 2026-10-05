@@ -139,6 +139,12 @@ def lock_ready():
 
 def materialize(root, target):
     shutil.copytree(root, target, ignore=shutil.ignore_patterns("managed.json", ".state", "__pycache__"))
+    scheme_base = STATE / 'scheme-base.json'
+    if (root / 'scripts/scheme.py').exists() and scheme_base.exists():
+        trusted(scheme_base)
+        base = json.loads(scheme_base.read_text())
+        for name in ('colors.toml', 'shell.toml'):
+            (target / 'theme' / name).write_text(base[name])
 
 
 def populate(payload):
@@ -156,6 +162,8 @@ def populate(payload):
         target.unlink()
         (DEST / label).rename(target)
         (DEST / label).symlink_to(target, target_is_directory=True)
+    if (DEST / 'scripts/scheme.py').exists():
+        subprocess.run(['python', '-B', str(DEST / 'scripts/scheme.py'), 'reset-base'], env=ENV, check=True)
 
 
 def restore_view(journal, fresh=False):

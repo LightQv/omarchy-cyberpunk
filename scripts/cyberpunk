@@ -11,6 +11,8 @@ usage() {
     '  enable <component|all>  Enable Cyberpunk presentation' \
     '  disable <component|all> Use native presentation' \
     '  check                   Check integration without changes' \
+    '  scheme status|toggle    Inspect or invert interface accents' \
+    '  scheme set default|inverted  Select interface accents' \
      '  repair                  Apply the selected theme and saved choices' \
      '  update                  Install the latest published release' \
      '  version                 Show the installed release version' \
@@ -37,6 +39,19 @@ list_components() {
 }
 [[ $# -gt 0 ]] || { usage; exit 1; }
 case $1 in
+  scheme)
+    case ${2:-} in
+      status) [[ $# == 2 ]] || die 'usage: cyberpunk scheme status'; exec python -B "$PROJECT/scripts/scheme.py" status ;;
+      toggle|set)
+        [[ ( $2 == toggle && $# == 2 ) || ( $2 == set && $# == 3 && ( $3 == default || $3 == inverted ) ) ]] || die 'usage: cyberpunk scheme toggle|set default|inverted'
+        lifecycle_lock
+        [[ -f $PROJECT/release.json ]] || die 'scheme changes require a managed release installation; preview palette edits in the checkout'
+        installed || die 'install the integration before changing scheme'
+        lock_unlocked || die 'change scheme only while unlocked and PAM-ready'
+        pgrep -f '[a]skpass.py|[p]kexec' >/dev/null && die 'finish active authentication requests before changing scheme'
+        exec python -B "$PROJECT/scripts/scheme.py" "${@:2}" ;;
+      *) die 'usage: cyberpunk scheme status|toggle|set default|inverted' ;;
+    esac ;;
   -h|--help|help) [[ $# == 1 ]] || die 'unexpected arguments'; usage; exit 0 ;;
   list) [[ $# == 1 ]] || die 'usage: cyberpunk list'; list_components; exit 0 ;;
   status) [[ $# == 1 ]] || die 'usage: cyberpunk status'; exec python -B "$PROJECT/scripts/preferences.py" status ;;

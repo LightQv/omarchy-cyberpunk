@@ -24,7 +24,11 @@ if [[ $mode == --removed ]]; then
   exit 0
 fi
 installed || die 'project links/hook are missing or no longer owned by this project'
-"$PROJECT/scripts/render-palette" --check || die 'Cyberpunk palette output is stale'
+if [[ -f $PROJECT/release.json ]]; then
+  python -B "$PROJECT/scripts/scheme.py" check || die 'Cyberpunk scheme output is stale'
+else
+  "$PROJECT/scripts/render-palette" --check || die 'Cyberpunk palette output is stale'
+fi
 if [[ $mode == --repair ]]; then
   install_cli
   python -B "$PROJECT/scripts/preferences.py" init

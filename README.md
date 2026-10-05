@@ -271,6 +271,26 @@ selected in a Wayland terminal. Off-theme, scripted sudo,
 
 ### Palette
 
+Invert the red/turquoise **interface roles** without manually editing theme files:
+
+```sh
+cyberpunk scheme status
+cyberpunk scheme toggle
+cyberpunk scheme set inverted
+cyberpunk scheme set default
+```
+
+The scheme is saved independently of component choices and survives updates,
+theme switching and reinstall. Terminal ANSI colors, wallpaper and component
+preferences stay unchanged. When Cyberpunk is selected, shell colors and window
+borders refresh directly; this does **not** invoke Omarchy's full theme-switch
+hooks or send OpenCode its reload signal. Off-theme, the choice is saved for
+the next Cyberpunk selection. New sudo prompts follow the scheme too.
+
+Change schemes while unlocked with no authentication dialog open. Active lock or
+authentication requests block the command. Modified installed files are still
+protected; supported scheme generation is recorded as project-owned output.
+
 For palette development, edit `theme/colors.toml` in the checkout and render it:
 
 ```sh
@@ -311,7 +331,7 @@ different active clones are protected. Development checkouts remain untouched.
 
 ## Status and development
 
-**60 regression tests** and live desktop/auth/lifecycle checks passed on the
+**63 regression tests** and live desktop/auth/lifecycle checks passed on the
 inspected setup. Native idle locking, display blank/wake and controlled
 screensaver-class wallpaper fallback passed too.
 The tests and public media/link checks also pass from a clean tracked-file export;
@@ -350,7 +370,7 @@ change your daily desktop.
 ./dev preview installer            # Real banner/prompts, simulated installation
 ./dev preview installer --setup full --non-interactive
 ./dev build                        # Local v0.0.0 archive, not installed/published
-./dev build v0.1.4                  # Explicit local candidate version
+./dev build v0.1.5                  # Explicit local candidate version
 ```
 
 Generated previews remain under ignored `preview/` and `showcase/`; local archives

@@ -74,6 +74,34 @@ class ReleaseTest(unittest.TestCase):
         self.assertEqual((self.state / "preferences.json").read_bytes(), preferences)
         self.cli("check")
 
+    def test_scheme_survives_update_and_restore_is_exact(self):
+        self.run_release()
+        palette = self.dest / 'theme/colors.toml'
+        original = palette.read_bytes()
+        self.fixture.theme.write_text('matte-black\n')
+        self.cli('repair')
+        self.cli('scheme', 'toggle')
+        self.assertIn('inverted', self.cli('scheme', 'status').stdout)
+        self.cli('check')
+        self.run_release(self.make_payload('v0.1.1'))
+        self.assertIn('inverted', self.cli('scheme', 'status').stdout)
+        self.cli('check')
+        self.cli('scheme', 'set', 'default')
+        self.assertEqual(palette.read_bytes(), original)
+        self.cli('uninstall')
+
+    def test_inverted_update_failure_recovers_palette_and_scheme(self):
+        self.run_release()
+        self.fixture.theme.write_text('matte-black\n')
+        self.cli('repair')
+        self.cli('scheme', 'set', 'inverted')
+        palette = (self.dest / 'theme/colors.toml').read_bytes()
+        self.fixture.control.write_text('{"fail_once": "theme set matte-black"}')
+        self.run_release(self.make_payload('v0.1.1'), success=False)
+        self.assertEqual((self.dest / 'theme/colors.toml').read_bytes(), palette)
+        self.assertIn('inverted', self.cli('scheme', 'status').stdout)
+        self.cli('check')
+
     def test_checkout_migration_preserves_choices_and_stock_lock(self):
         self.fixture.run_script("install-dev")
         self.fixture.run_script("cyberpunk", "enable", "all")
