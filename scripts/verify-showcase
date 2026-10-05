@@ -33,13 +33,15 @@ def main():
             metadata = json.loads(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries",
                 "stream=width,height,avg_frame_rate:format=duration", "-of", "json", str(path)]))
             video = metadata["streams"][0]
-            expected_fps = "20/1" if name == "menu.mp4" else "50/1"
+            expected_fps = "60/1" if name == "presentation.mp4" else "20/1" if name == "menu.mp4" else "50/1"
             if (video["width"], video["height"], video["avg_frame_rate"]) != (1920, 1080, expected_fps):
                 raise ValueError(f"Unexpected video format: {name}")
             if float(metadata["format"]["duration"]) < 1.4:
                 raise ValueError(f"Incomplete clip: {name}")
     live = manifest.get("liveDesktop")
     groups = [manifest["desktop"], manifest["auth"]]
+    if manifest.get('presentation'):
+        groups.append(manifest['presentation'])
     if live:
         groups.append(live)
         if "desktop.png" not in files:

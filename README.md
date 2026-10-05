@@ -15,6 +15,10 @@ Neon accents. Angular interfaces. A Cyberpunk setup you control.
 
 <img src="docs/media/hero.png" width="1100" alt="Curved Cyberpunk command menu with red and turquoise frames over wallpaper 06">
 
+<a href="https://github.com/LightQv/omarchy-cyberpunk/releases/download/v0.1.4/presentation.mp4"><img src="docs/media/presentation-poster.png" width="1100" alt="Watch the 73-second continuous Cyberpunk desktop presentation"></a>
+
+**[Watch the presentation · 1080p / 60 FPS](https://github.com/LightQv/omarchy-cyberpunk/releases/download/v0.1.4/presentation.mp4)**
+
 *Omarchy's native foundations. Your own Cyberpunk component mix.*
 
 </div>
@@ -68,6 +72,11 @@ Component views are actual QML captured in a clean private preview session;
 shortcut rows and notifications use illustrative data. Auth views are offline
 appearance demos, with no real credentials or authentication requests. Optional
 components are shown enabled for the showcase; **fresh installs are base-only**.
+
+The presentation is one continuous live take: desktop/top bar, window borders and
+scheme inversion, menu/Apps, wallpaper switching, sample notifications, volume/mute
+OSD, real sudo failure/retry/success and Polkit success. Mouse pointer and audio are
+excluded. Demonstration messages/OSD values are controlled; actual audio is unchanged.
 
 [Full-resolution motion clips and reproduction details →](docs/media/README.md)
 

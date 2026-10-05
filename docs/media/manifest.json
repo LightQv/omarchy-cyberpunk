@@ -81,7 +81,9 @@
     "sudo.mp4": "0ca73e16f30ebf7803c0bf825a6a97ed613176a99ffe5f52b22698cc90ddca47",
     "sudo.png": "ac149e2efdfef1ac950dd9d7504b31f4455c1333f0c7c3ecf18dd14126d0784f",
     "volume.png": "ec0d11a2a8c82fcb44d2063357e9cc58d7ead36a4d70712d7b92c17e1aaa6dc4",
-    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883"
+    "wallpapers.png": "7719ce043f83f01151e0fa8c4ea986b3c6bede57a3a2528e89e9c56a2299c883",
+    "presentation.mp4": "9ceb35de16140c0518f05a0eceec8cc6b7bc835fd9ffa82962f86538553bd6d9",
+    "presentation-poster.png": "55d3a8e3d073c52c61dff06380c26f88dda12193801b5ab379110dfd8675dcd9"
   },
   "liveDesktop": {
     "kind": "live Omarchy desktop, actual configured top bar on an empty workspace",
@@ -93,5 +95,59 @@
       "theme/shell.toml": "f4b9166c1776f39a003dbe4d5c65b0f809240f24b90c06cc7d2339f0fda7f001"
     },
     "note": "Top-bar widgets reflect the author's setup, not fresh-install defaults."
+  },
+  "presentation": {
+    "kind": "continuous live desktop capture, cursor excluded; real sudo retry/success and Polkit success",
+    "version": "v0.1.4",
+    "cuts": 0,
+    "audio": false,
+    "duration": 73.1,
+    "stages": [
+      {
+        "stage": "Opening desktop",
+        "seconds": 0.0
+      },
+      {
+        "stage": "Window borders and inverted scheme",
+        "seconds": 7.001
+      },
+      {
+        "stage": "Command menu",
+        "seconds": 14.28
+      },
+      {
+        "stage": "Applications",
+        "seconds": 19.674
+      },
+      {
+        "stage": "Wallpaper picker",
+        "seconds": 23.87
+      },
+      {
+        "stage": "Private sample notifications",
+        "seconds": 31.427
+      },
+      {
+        "stage": "Volume and mute OSD",
+        "seconds": 38.067
+      },
+      {
+        "stage": "Sudo: user enters incorrect password then correct password",
+        "seconds": 45.345
+      },
+      {
+        "stage": "Polkit: user enters correct password",
+        "seconds": 57.15
+      },
+      {
+        "stage": "Closing desktop",
+        "seconds": 68.477
+      }
+    ],
+    "notes": "Clean demonstration terminals; private-bus sample notifications and sample OSD payloads. Actual audio unchanged. Passwords entered by user into masked dialogs.",
+    "inputs": {
+      "scripts/presentation.py": "931c97c81725574734de2e0e560a5d8bb5f6137583e060bcc6010503dcaae7aa",
+      "scripts/export-presentation": "2199ebd27ba212f835fb95ad493de93d73b5a73740b3f92c112d1b4b47ead3b9"
+    }
   }
 }

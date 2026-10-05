@@ -56,6 +56,9 @@ def main():
         live = json.loads(previous.read_text()).get("liveDesktop")
         if live and (OUTPUT / "desktop.png").exists():
             manifest["liveDesktop"] = live
+        presentation = json.loads(previous.read_text()).get('presentation')
+        if presentation and (OUTPUT / 'presentation.mp4').exists():
+            manifest['presentation'] = presentation
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Published {len(manifest['files'])} showcase assets to docs/media.")
 
