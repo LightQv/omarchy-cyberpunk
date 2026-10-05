@@ -83,3 +83,10 @@ baseline. The new read-only `cyberpunk check` detects changed source files as we
 It does not automatically replace or unload running providers, and `repair` retains
 its recovery behavior. Existing v0.1.4 installations can run `cyberpunk update`
 to receive the general audit in v0.1.5; their existing lock-pin safeguards remain.
+
+Since **v0.1.6**, the installer explicitly commits the restored theme's staged
+palette to the running shell after installation, update, same-version reinstall
+and recovery. It requires the shell's `ok` acknowledgement; a failed commit enters
+the normal rollback/recovery path. This corrects cases where the selected theme
+and files were Cyberpunk but the bar, OSD and theme-following plugins retained a
+previous native theme's colors. The saved default/inverted scheme is preserved.

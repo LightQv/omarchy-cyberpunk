@@ -16,7 +16,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 KINDS = ("menu", "polkit", "notifications", "osd", "lock")
 FAKE = r'''#!/usr/bin/python
-import json, os, pathlib, subprocess, sys
+import base64, json, os, pathlib, shutil, subprocess, sys
 home = pathlib.Path(os.environ["HOME"])
 config = home / ".config/omarchy/shell.json"
 theme = home / ".local/state/omarchy/current/theme.name"
@@ -26,6 +26,8 @@ command = " ".join(args)
 binary = pathlib.Path(sys.argv[0]).name
 if binary == "hyprctl":
     if args == ["-j", "layers"]: print("{}")
+    elif args == ["reload"]: print("ok")
+    elif args == ["configerrors"]: print("ok")
     else: sys.exit(2)
     sys.exit(0)
 if binary == "systemctl":
@@ -68,6 +70,14 @@ if pathlib.Path(sys.argv[0]).name == "omarchy-shell":
         print(json.dumps(dict(locked=locked, requested=locked, sessionLocked=locked,
                               secure=locked, passwordPam=True)))
     elif args == ["shell", "rescanPlugins"]: print("ok")
+    elif args[:2] == ["shell", "applyTheme"]:
+        reply = control.pop("palette_reply_once", "ok")
+        (home / "control.json").write_text(json.dumps(control))
+        if reply == "ok":
+            (home / "live-palette.json").write_text(json.dumps({
+                "colors.toml": base64.b64decode(args[2]).decode(),
+                "shell.toml": base64.b64decode(args[3]).decode()}))
+        print(reply)
     else: sys.exit(2)
 elif args == ["version"]: print("4.0.4-1")
 elif args[:2] == ["plugin", "validate"]: pass
@@ -104,6 +114,16 @@ elif args[:3] == ["theme", "bg", "set"]:
     (home / "selected-background").write_text(args[3])
 elif args[:2] == ["theme", "set"]:
     theme.write_text(args[2] + "\n")
+    current = theme.parent / "theme"
+    current.mkdir(exist_ok=True)
+    source = home / ".config/omarchy/themes" / args[2]
+    for name in ("colors.toml", "shell.toml"):
+        if (source / name).exists(): shutil.copyfile(source / name, current / name)
+        else: (current / name).write_text('accent = "#509475"\n' if name == "colors.toml" else '[bar]\nactive = "#509475"\n')
+    (current / "hyprland.lua").write_text('local active_border_color = {}\n')
+    # Reproduce native best-effort theme IPC leaving the old palette in memory
+    # even though theme.name and current/theme files were successfully staged.
+    (home / "live-palette.json").write_text(json.dumps({"colors.toml": 'accent = "#509475"\n', "shell.toml": ""}))
     if control.get("fail_after_theme"):
         sys.exit(24)
     hook = home / ".config/omarchy/hooks/theme-set.d/lightqv-cyberpunk-menu"

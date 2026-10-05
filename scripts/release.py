@@ -2,6 +2,7 @@
 """Install release files into Omarchy's native layout with journaled rollback."""
 
 import argparse
+import base64
 import fcntl
 import hashlib
 import json
@@ -167,6 +168,22 @@ def populate(payload):
         subprocess.run(['python', '-B', str(DEST / 'scripts/scheme.py'), 'reset-base'], env=ENV, check=True)
 
 
+def apply_current_palette():
+    """Commit staged colors to the live shell, including during old-release recovery.
+
+    Native theme switching uses best-effort IPC/background transitions. File and
+    provider checks cannot establish that the running Color singleton was updated.
+    Keep this in the transaction controller so rollback to older runtimes also
+    receives the fix without editing their owned support files.
+    """
+    payloads = [base64.b64encode((CURRENT / "theme" / name).read_bytes()).decode()
+                for name in ("colors.toml", "shell.toml")]
+    result = subprocess.check_output(["omarchy-shell", "shell", "applyTheme", *payloads],
+                                     env=ENV, text=True, timeout=10).strip()
+    if result != "ok":
+        raise ValueError(f"Live theme palette was not acknowledged: {result!r}")
+
+
 def restore_view(journal, fresh=False):
     selected = "cyberpunk" if fresh else journal["theme"]
     native("theme", "set", selected)
@@ -178,6 +195,7 @@ def restore_view(journal, fresh=False):
     if wallpaper and Path(wallpaper).is_file():
         native("theme", "bg", "set", wallpaper)
     run_script(DEST, "verify")
+    apply_current_palette()
 
 
 def recover():
@@ -207,10 +225,12 @@ def recover():
         native("theme", "set", journal["theme"])
         if journal.get("wallpaper") and Path(journal["wallpaper"]).is_file():
             native("theme", "bg", "set", journal["wallpaper"])
+        apply_current_palette()
     else:
         native("theme", "set", journal["theme"])
         if journal.get("wallpaper") and Path(journal["wallpaper"]).is_file():
             native("theme", "bg", "set", journal["wallpaper"])
+        apply_current_palette()
     shutil.rmtree(TRANSACTION)
 
 
@@ -250,6 +270,7 @@ def install(payload, setup=None, components=None, non_interactive=False):
         if json.loads((old / "release.json").read_text()) != release:
             raise ValueError("A published version must not change its files; use a new release version")
         run_script(old, "verify")
+        apply_current_palette()
         print(f"Cyberpunk {release['version']} is already installed.")
         run_script(DEST, "cyberpunk", "status")
         return

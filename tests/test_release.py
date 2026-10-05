@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
+import tomllib
 import unittest
 
 import test_lifecycle
@@ -89,6 +90,52 @@ class ReleaseTest(unittest.TestCase):
         self.cli('scheme', 'set', 'default')
         self.assertEqual(palette.read_bytes(), original)
         self.cli('uninstall')
+
+    def assert_live_palette(self):
+        live = json.loads((self.fixture.home / "live-palette.json").read_text())
+        current = self.fixture.theme.parent / "theme"
+        self.assertEqual(live, {name: (current / name).read_text() for name in ("colors.toml", "shell.toml")})
+        return tomllib.loads(live["colors.toml"])["accent"]
+
+    def test_update_commits_default_palette_after_native_ipc_miss(self):
+        self.run_release()
+        choices = (self.state / "preferences.json").read_bytes()
+        self.run_release(self.make_payload("v0.1.1"))
+        self.assertEqual(self.assert_live_palette(), "#ff3045")
+        self.assertEqual((self.state / "preferences.json").read_bytes(), choices)
+
+    def test_update_commits_saved_inverted_palette_while_cyberpunk_active(self):
+        self.run_release()
+        self.cli("scheme", "set", "inverted")
+        self.run_release(self.make_payload("v0.1.1"))
+        self.assertEqual(self.assert_live_palette(), "#53e3d2")
+        self.assertIn("inverted", self.cli("scheme", "status").stdout)
+
+    def test_failed_palette_acknowledgement_rolls_back_and_restores_live_colors(self):
+        self.run_release()
+        self.cli("scheme", "set", "inverted")
+        self.fixture.control.write_text(json.dumps({"palette_reply_once": "not-ready"}))
+        result = self.run_release(self.make_payload("v0.1.1"), success=False)
+        self.assertIn("not acknowledged", result.stderr)
+        self.assertIn("v0.1.0", self.cli("version").stdout)
+        self.assertEqual(self.assert_live_palette(), "#53e3d2")
+        self.assertFalse((self.state / "release-transaction").exists())
+
+    def test_repeat_install_repairs_stale_live_palette(self):
+        self.run_release()
+        (self.fixture.home / "live-palette.json").write_text("{}")
+        self.run_release()
+        self.assertEqual(self.assert_live_palette(), "#ff3045")
+
+    def test_off_theme_update_keeps_native_palette_and_saved_scheme(self):
+        self.run_release()
+        self.cli("scheme", "set", "inverted")
+        self.fixture.theme.write_text("matte-black\n")
+        self.cli("repair")
+        self.run_release(self.make_payload("v0.1.1"))
+        self.assertEqual(self.fixture.theme.read_text().strip(), "matte-black")
+        self.assertEqual(self.assert_live_palette(), "#509475")
+        self.assertIn("inverted", self.cli("scheme", "status").stdout)
 
     def test_inverted_update_failure_recovers_palette_and_scheme(self):
         self.run_release()
