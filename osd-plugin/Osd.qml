@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
+import qs.Ui
 import "OsdModel.js" as OsdModel
 
 Item {
@@ -22,8 +24,8 @@ Item {
   readonly property bool volumeOsd: iconKey.indexOf("volume") === 0 || iconKey === "mute" || iconKey === "muted"
   readonly property bool muted: volumeOsd && (iconKey.indexOf("mute") !== -1 || value === 0)
   readonly property bool longMessage: !hasProgress && message.length > 0
-  readonly property color accent: muted ? Color.menu.selectedBorder : Color.menu.selectedText
-  readonly property color barColor: muted ? Color.menu.selectedBorder : Color.menu.border
+  readonly property color accent: muted ? Commons.Color.menu.selectedBorder : Commons.Color.menu.selectedText
+  readonly property color barColor: muted ? Commons.Color.menu.selectedBorder : Commons.Color.menu.border
   readonly property string label: volumeOsd ? "VOLUME" :
     (iconKey.indexOf("microphone") === 0 || iconKey.indexOf("mic") === 0) ? "MICROPHONE" :
     (iconKey === "brightness" || iconKey === "display") ? "BRIGHTNESS" :
@@ -31,7 +33,7 @@ Item {
     iconKey ? iconKey.replace(/[-_]/g, " ").toUpperCase() : "STATUS"
 
   function show(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {
-    var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration)
+    var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration, Commons.I18n.formatNumber)
     var alreadyVisible = opened
     animateFill = alreadyVisible
     iconKey = next.iconKey
@@ -61,7 +63,7 @@ Item {
     onTriggered: root.close()
   }
 
-  IpcHandler {
+  ShellIpc {
     target: "osd"
     function show(payloadJson: string): string { root.open(payloadJson); return "ok" }
     function close(): string { root.close(); return "ok" }
@@ -69,15 +71,11 @@ Item {
     function ping(): string { return "ok" }
   }
 
-  PanelWindow {
+  OverlayWindow {
     id: panel
-    visible: root.opened
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
+    shown: root.opened
+    shownKeyboardFocus: WlrKeyboardFocus.None
     WlrLayershell.namespace: "omarchy-osd"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
     mask: Region {}
 
     Item {
@@ -101,7 +99,7 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.iconLarge
         style: Text.Outline
-        styleColor: Color.background
+        styleColor: Commons.Color.background
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
       }
@@ -117,7 +115,7 @@ Item {
         font.bold: true
         color: root.accent
         style: Text.Outline
-        styleColor: Color.background
+        styleColor: Commons.Color.background
         elide: Text.ElideRight
       }
       Text {
@@ -133,7 +131,7 @@ Item {
         horizontalAlignment: Text.AlignRight
         color: root.accent
         style: Text.Outline
-        styleColor: Color.background
+        styleColor: Commons.Color.background
         elide: Text.ElideRight
       }
       Row {
@@ -146,7 +144,7 @@ Item {
           text: root.icon; textFormat: Text.PlainText
           color: root.accent; font.family: Style.font.family
           font.pixelSize: Style.font.iconLarge
-          style: Text.Outline; styleColor: Color.background
+          style: Text.Outline; styleColor: Commons.Color.background
           horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         Text {
@@ -155,7 +153,7 @@ Item {
           text: root.message; textFormat: Text.PlainText
           font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Style.font.body + 1
           font.bold: true; color: root.accent
-          style: Text.Outline; styleColor: Color.background
+          style: Text.Outline; styleColor: Commons.Color.background
           elide: Text.ElideRight
         }
       }
@@ -229,7 +227,7 @@ Item {
           x: Math.max(0, Math.min(parent.width - width, progress.fillWidth - width / 2))
           anchors.verticalCenter: parent.verticalCenter
           visible: progress.fillWidth > 0
-          color: Color.foreground
+          color: Commons.Color.foreground
         }
       }
     }

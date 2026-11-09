@@ -1,8 +1,9 @@
-// Copied from Omarchy 4.0.4-1: keep the stock icon, progress, and IPC semantics.
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
+// The widest glyph `iconFor` can return. The progress OSD sizes its icon
+// column to it so the bar keeps its place as the icon changes.
 var widestIcon = ""
 
 function iconFor(name, percent) {
@@ -33,7 +34,10 @@ function iconFor(name, percent) {
   return ""
 }
 
-function stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {
+// fmt(value) writes the percentage in the display language; QML passes
+// I18n.formatNumber, and without it the digits stay as they are.
+function stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration, fmt) {
+  var number = typeof fmt === "function" ? fmt : function(v) { return String(v) }
   var maxValue = Math.max(1, parseInt(rawMax || "100", 10))
   var parsedValue = parseInt(rawValue || "0", 10)
   var hasProgress = rawValue !== "" && !isNaN(parsedValue) && rawMessage === ""
@@ -46,12 +50,16 @@ function stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, r
     maxValue: maxValue,
     hasProgress: hasProgress,
     value: value,
-    message: String(rawMessage || (hasProgress ? (rawProgressText || percent + "%") : "")),
+    message: String(rawMessage || (hasProgress ? (rawProgressText || number(percent) + "%") : "")),
     icon: iconFor(iconName, percent),
     duration: isNaN(parsedDuration) ? 1200 : Math.max(0, parsedDuration)
   }
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { widestIcon: widestIcon, iconFor: iconFor, stateForShow: stateForShow }
+  module.exports = {
+    widestIcon: widestIcon,
+    iconFor: iconFor,
+    stateForShow: stateForShow
+  }
 }

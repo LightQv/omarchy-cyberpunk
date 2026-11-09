@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 
 // Keep Omarchy's password/fingerprint field, focus and secure surface intact.
 // The decorative HUD is shared with the standalone, non-authenticating preview.
@@ -31,10 +32,10 @@ StockLockView {
         fieldWidth: root.fieldWidth
         fieldHeight: root.fieldHeight
         fieldYOffset: root.fieldYOffset
-        red: Color.lock.borderActive
-        cyan: Color.lock.border
-        textColor: Color.lock.text
-        mutedColor: Color.lock.placeholder
+        red: Commons.Color.lock.borderActive
+        cyan: Commons.Color.lock.border
+        textColor: Commons.Color.lock.text
+        mutedColor: Commons.Color.lock.placeholder
         failed: root.failureMessage.length > 0
         authenticating: root.authenticatingPassword
         canSubmit: root.passwordText.length > 0

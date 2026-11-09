@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Services.Polkit
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "PolkitModel.js" as PolkitModel
 import "../lightqv.cyberpunk-lock" as LockArt
@@ -13,12 +14,12 @@ Item {
   id: root
 
   property string fontFamily: "JetBrainsMono Nerd Font"
-  property color accent: Color.polkit.accent
-  property color background: Color.polkit.background
-  property color foreground: Color.polkit.text
-  property color border: Color.polkit.border
-  property color borderError: Color.polkit.borderError
-  property color scrim: Color.polkit.scrim
+  property color accent: Commons.Color.polkit.accent
+  property color background: Commons.Color.polkit.background
+  property color foreground: Commons.Color.polkit.text
+  property color border: Commons.Color.polkit.border
+  property color borderError: Commons.Color.polkit.borderError
+  property color scrim: Commons.Color.polkit.scrim
   property bool closing: false
   property bool submitted: false
   property string currentMessage: ""
@@ -41,7 +42,7 @@ Item {
   // the clamshell gate bypasses the inaccessible sensor.
   readonly property bool fingerprintMode: fingerprintConfigured && !laptopClosed && dialogVisible && !responseRequired && !submitted && !errorFlash
 
-  function authorizationLabel(message) { return PolkitModel.authorizationLabel(message) }
+  function authorizationLabel(message) { return message ? PolkitModel.authorizationLabel(message, I18n.t) : I18n.t("polkit.authenticationNeeded") }
   function loadPamConfig(raw) { fingerprintConfigured = PolkitModel.fingerprintConfiguredFromPamConfig(raw) }
   function refreshLidState() { if (!laptopClosedProc.running) laptopClosedProc.running = true }
 
@@ -63,7 +64,7 @@ Item {
   function syncFromFlow() {
     var flow = polkitAgent.flow
     if (!flow) return
-    currentMessage = String(flow.message || "Authentication is needed...")
+    currentMessage = String(flow.message || "")
     currentPrompt = String(flow.inputPrompt || "")
     currentSupplementary = String(flow.supplementaryMessage || "")
     responseRequired = !!flow.isResponseRequired
@@ -215,6 +216,8 @@ Item {
 
   PanelWindow {
     id: panel
+    Binding { target: panel.contentItem; property: "LayoutMirroring.enabled"; value: Commons.I18n.rightToLeft }
+    Binding { target: panel.contentItem; property: "LayoutMirroring.childrenInherit"; value: true }
     visible: root.dialogVisible && !root.capturePending
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -313,7 +316,7 @@ Item {
       text: "󰈷"
       fontFamily: root.fontFamily
       fontSize: Math.round(hud.fieldHeight * 0.8)
-      color: root.errorFlash ? Color.polkit.textError : root.accent
+      color: root.errorFlash ? Commons.Color.polkit.textError : root.accent
     }
     Rectangle {
       id: inputField

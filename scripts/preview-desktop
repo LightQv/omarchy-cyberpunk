@@ -16,6 +16,7 @@ from preview_video import encode_video
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "showcase"
 SIZE = (1920, 1080)
+OMARCHY = Path(os.environ.get("CYBERPUNK_PREVIEW_OMARCHY", "/usr/share/omarchy"))
 
 
 def main():
@@ -26,10 +27,10 @@ def main():
         current = home / ".local/state/omarchy/current"
         current.mkdir(parents=True)
         (current / "theme").symlink_to(ROOT / "theme")
-        for name, source in {"Commons": Path("/usr/share/omarchy/shell/Commons"),
-                             "Ui": Path("/usr/share/omarchy/shell/Ui"),
+        for name, source in {"Commons": OMARCHY / "shell/Commons",
+                             "Ui": OMARCHY / "shell/Ui",
                              "Menu": ROOT / "menu-plugin", "Notifications": ROOT / "notifications-plugin",
-                             "Osd": ROOT / "osd-plugin", "Picker": Path("/usr/share/omarchy/shell/plugins/image-picker")}.items():
+                             "Osd": ROOT / "osd-plugin", "Picker": OMARCHY / "shell/plugins/image-picker"}.items():
             (base / name).symlink_to(source)
         qml = base / "shell.qml"
         qml.write_text((ROOT / "scripts/showcase/Desktop.qml").read_text())
@@ -45,7 +46,7 @@ def main():
         if not address:
             raise RuntimeError("Private preview bus did not start")
         environment = dict(os.environ, HOME=str(home), DBUS_SESSION_BUS_ADDRESS=address,
-                           CYBERPUNK_PREVIEW_ROOT=str(ROOT), OMARCHY_PATH="/usr/share/omarchy",
+                           CYBERPUNK_PREVIEW_ROOT=str(ROOT), OMARCHY_PATH=str(OMARCHY),
                            NO_AT_BRIDGE="1", QT_ACCESSIBILITY="0", OMARCHY_REDUCED_MOTION="0")
         environment.pop("QT_QPA_PLATFORM", None)
         environment.pop("QT_SCALE_FACTOR", None)
@@ -155,7 +156,7 @@ def main():
         "sampleData": "illustrative keybinding rows and notifications; no real user history",
         "inputs": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
                    for name in ("scripts/showcase/Desktop.qml", "menu-plugin/Menu.qml",
-                                "notifications-plugin/Service.qml", "notifications-plugin/components/NotificationCard.qml",
+                                 "notifications-plugin/Service.qml", "notifications-plugin/Toast.qml",
                                 "osd-plugin/Osd.qml", "theme/colors.toml", "theme/shell.toml")},
         "wallpaperHashes": {name: hashlib.sha256((ROOT / "theme/backgrounds" / name).read_bytes()).hexdigest()
                             for name in ("06.png", "07.png", "09.png", "10.png", "12.png")},

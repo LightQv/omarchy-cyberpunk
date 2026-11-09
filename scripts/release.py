@@ -239,6 +239,9 @@ def install(payload, setup=None, components=None, non_interactive=False):
     version = subprocess.check_output(["omarchy", "version"], env=ENV, text=True).strip()
     if version != release["omarchy"]:
         raise ValueError(f"This release supports Omarchy {release['omarchy']}; found {version}")
+    # Exact package names are not enough: local edits or mixed package files
+    # must fail before removing the previous providers or runtime.
+    subprocess.run(["python", "-B", str(payload / "scripts/compatibility.py")], env=ENV, check=True)
     subprocess.run(["python", "-c", "import PySide6.QtQuickWidgets"], env=ENV, check=True)
     lock_ready()
     if TRANSACTION.exists() or TRANSACTION.is_symlink():

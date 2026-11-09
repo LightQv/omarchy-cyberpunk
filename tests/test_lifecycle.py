@@ -79,7 +79,7 @@ if pathlib.Path(sys.argv[0]).name == "omarchy-shell":
                 "shell.toml": base64.b64decode(args[3]).decode()}))
         print(reply)
     else: sys.exit(2)
-elif args == ["version"]: print("4.0.4-1")
+elif args == ["version"]: print(control.get("omarchy_version", "4.5.0-3"))
 elif args[:2] == ["plugin", "validate"]: pass
 elif args == ["plugin", "list", "--json"]:
     result = []

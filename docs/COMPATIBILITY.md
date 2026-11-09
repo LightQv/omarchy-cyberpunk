@@ -1,7 +1,54 @@
 # Omarchy compatibility
 
-Cyberpunk supports the reviewed **Omarchy 4.0.4-1** package (upstream **v4.0.4**).
+This branch targets the reviewed **Omarchy 4.5.0-3** package (upstream **v4.5.0**).
 Copied plugins do not automatically receive upstream fixes after a system update.
+
+## 4.5 qualification and transition
+
+The baseline is from the stable x86_64 package, verified with the installed
+Omarchy public key. The package's SHA-256 and upstream commit are recorded in
+`scripts/omarchy-baseline.json`; its 70 tracked source files are checked before
+an installer transaction changes live providers. **Live system qualification is
+pending: this branch must initially ship as a prerelease, not a stable claim.**
+
+The port retains Cyberpunk's command-wheel and authentication presentation while
+incorporating the 4.5 menu's disabled rows, multi-selection, IME/filter handling,
+translations and source-loading fixes. Notifications use the native 4.5 engine
+and security helpers, with a presentation-only angular frame. The lock is built
+from the complete new service, preserving wake-key repeat filtering, password
+focus recovery, fingerprint pacing, suspend/resume handling and video posters.
+Safe mode remains enabled until a separate secure lock/unlock acceptance.
+
+The old notification history is retired by Omarchy's own migration. Back it up
+before updating; do not copy its old JSON files over the 4.5 store.
+
+Upgrade order for an existing 4.0.4-1 installation:
+
+1. Back up home customizations as well as the system snapshot; Omarchy's root
+   snapshots can exclude home. Preserve the existing lock safe-mode marker.
+2. Select a bundled native theme through `omarchy theme set`. This keeps saved
+   Cyberpunk choices but restores native providers before upgrading their host.
+3. Run the official full stable Omarchy update, not a partial package upgrade.
+4. Once Omarchy reports the supported package version, run `cyberpunk update`.
+   During qualification, use the same installed release bootstrap with an explicit
+   prerelease tag: `bash ~/.local/share/omarchy-cyberpunk/install.sh --version v0.2.0`.
+   This downloads the GitHub asset and verifies both checksum and file manifest;
+   it is not a checkout install or a direct edit of installed plugins.
+5. Select Cyberpunk, run `cyberpunk check`, and test the saved component choices,
+   palette, apps/search, notifications/actions/DND, OSD, Polkit, QR65 and shortcuts.
+   Test login/reboot/suspend separately. Only then promote the release to stable.
+
+Checkout verification against an extracted signed package (no live installation):
+
+```sh
+python -B scripts/rebase-omarchy-4.5.py --check --old-root /path/to/4.0.4/usr/share/omarchy --new-root /path/to/4.5/usr/share/omarchy
+python -B scripts/build-lock --check --omarchy-root /path/to/4.5/usr/share/omarchy
+OMARCHY_TEST_ROOT=/path/to/4.5/usr/share/omarchy ./dev test
+```
+
+The component test isolates HOME, configuration, state, runtime and both D-Bus
+buses. It uses the current Wayland connection only for Quickshell's backend;
+it never instantiates a lock service, submits a password or changes live providers.
 
 ## Read-only checks
 
