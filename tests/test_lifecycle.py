@@ -79,7 +79,7 @@ if pathlib.Path(sys.argv[0]).name == "omarchy-shell":
                 "shell.toml": base64.b64decode(args[3]).decode()}))
         print(reply)
     else: sys.exit(2)
-elif args == ["version"]: print("4.0.4-1")
+elif args == ["version"]: print(control.get("omarchy_version", "4.5.0-3"))
 elif args[:2] == ["plugin", "validate"]: pass
 elif args == ["plugin", "list", "--json"]:
     result = []
@@ -127,7 +127,7 @@ elif args[:2] == ["theme", "set"]:
     if control.get("fail_after_theme"):
         sys.exit(24)
     hook = home / ".config/omarchy/hooks/theme-set.d/lightqv-cyberpunk-menu"
-    if hook.exists():
+    if hook.exists() and not control.get("skip_theme_hook"):
         project = hook.resolve().parents[2]
         code = subprocess.call([str(project / "scripts/verify"), "--repair"])
         if control.get("change_after_theme"):
@@ -336,6 +336,46 @@ class LifecycleTest(unittest.TestCase):
         self.run_script("cyberpunk", "check")
         self.control.write_text("{}")
         self.run_script("wait-unlocked")
+        self.assertTrue(self.plugins()["omarchy.lock"])
+        self.assertFalse(self.plugins()["lightqv.cyberpunk-lock"])
+
+    def test_supervised_lock_trial_preserves_safe_mode_and_refuses_locked_restore(self):
+        self.run_script("install-dev")
+        self.run_script("cyberpunk", "enable", "lock")
+        safe = self.project / ".state/safe-mode"
+        before = safe.read_bytes()
+        self.run_script("cyberpunk", "lock", "status")
+        self.run_script("cyberpunk", "lock", "trial")
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-lock"])
+        self.assertFalse(self.plugins()["omarchy.lock"])
+        self.assertEqual(safe.read_bytes(), before)
+        marker = self.project / ".state/lock-trial"
+        self.assertEqual(marker.read_text(), "lock\n")
+        self.control.write_text(json.dumps({"locked": True}))
+        self.run_script("cyberpunk", "lock", "restore", success=False)
+        self.assertTrue(marker.exists())
+        self.assertTrue(self.plugins()["lightqv.cyberpunk-lock"])
+        self.control.write_text("{}")
+        self.run_script("cyberpunk", "lock", "restore")
+        self.assertFalse(marker.exists())
+        self.assertTrue(self.plugins()["omarchy.lock"])
+        self.assertEqual(safe.read_bytes(), before)
+
+    def test_lock_trial_refuses_source_drift_before_arming(self):
+        self.run_script("install-dev")
+        self.run_script("cyberpunk", "enable", "lock")
+        before = self.config.read_bytes()
+        (self.project / "scripts/compatibility.py").write_text("raise SystemExit(1)\n")
+        self.run_script("cyberpunk", "lock", "trial", success=False)
+        self.assertFalse((self.project / ".state/lock-trial").exists())
+        self.assertEqual(self.config.read_bytes(), before)
+
+    def test_lock_trial_activation_failure_restores_native_provider(self):
+        self.run_script("install-dev")
+        self.run_script("cyberpunk", "enable", "lock")
+        self.control.write_text(json.dumps({"fail": "plugin enable lightqv.cyberpunk-lock"}))
+        self.run_script("cyberpunk", "lock", "trial", success=False)
+        self.assertFalse((self.project / ".state/lock-trial").exists())
         self.assertTrue(self.plugins()["omarchy.lock"])
         self.assertFalse(self.plugins()["lightqv.cyberpunk-lock"])
 

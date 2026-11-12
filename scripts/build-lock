@@ -67,7 +67,10 @@ def render(stock: str) -> str:
 def render_view(view: str) -> str:
     # Keep the secure stock input/PAM interface. Only adjust the frozen backdrop
     # and the visual dimensions, position and border of its field.
-    view = once(view, '  readonly property string placeholderText: "Enter Password"\n',
+    # Normalize only for the anchored visual edits below, then emit qualified
+    # Commons.Color references required by the 4.5 shared UI imports.
+    view = view.replace("Commons.Color.", "Color.")
+    view = once(view, '  readonly property string placeholderText: Commons.I18n.t("lock.enterPassword")\n',
                 '  readonly property string placeholderText: "ENTER PASSWORD"\n')
     view = once(view, '  property string passwordText: ""\n',
                 '  property string passwordText: ""\n'
@@ -91,7 +94,7 @@ def render_view(view: str) -> str:
                  '    }\n\n'
                  '    SignalFault {\n'
                  '      anchors.fill: parent\n'
-                 '      imageSource: wallpaper.source\n'
+                  '      imageSource: wallpaper.imageUrl\n'
                  '      strength: root.signalPulse\n'
                  '      phase: root.signalPhase\n'
                  '      variant: root.signalVariant\n'
@@ -163,21 +166,24 @@ def render_view(view: str) -> str:
 
       // Fingerprint hint pinned inside the field's right edge when a sensor is
 ''')
-    return "// Pinned Omarchy LockView with a Cyberpunk backdrop scrim; see scripts/build-lock.\n" + view
+    return "// Pinned Omarchy LockView with a Cyberpunk backdrop scrim; see scripts/build-lock.\n" + view.replace("Color.", "Commons.Color.")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--omarchy-root", type=Path, default=Path("/usr/share/omarchy"),
+                        help="Read a separately extracted, pinned package for offline review")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check", action="store_true")
     group.add_argument("--write", action="store_true")
     args = parser.parse_args()
     try:
-        stock = UPSTREAM.read_text()
+        source = args.omarchy_root / "shell/plugins/lock/Service.qml"
+        stock = source.read_text()
         digest = hashlib.sha256(stock.encode()).hexdigest()
         if digest != STOCK_SHA256:
             raise ValueError(f"stock lock changed: {digest}; review upstream before rebuilding")
-        view = UPSTREAM_VIEW.read_text()
+        view = source.with_name("LockView.qml").read_text()
         view_digest = hashlib.sha256(view.encode()).hexdigest()
         if view_digest != VIEW_SHA256:
             raise ValueError(f"stock lock view changed: {view_digest}; review upstream before rebuilding")

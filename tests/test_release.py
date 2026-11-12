@@ -32,7 +32,8 @@ class ReleaseTest(unittest.TestCase):
         files = {str(path.relative_to(target)): {
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "mode": path.stat().st_mode & 0o777}
             for path in target.rglob("*") if path.is_file()}
-        (target / "release.json").write_text(json.dumps({"version": version, "omarchy": "4.0.4-1", "files": files}))
+        baseline = json.loads((target / "scripts/omarchy-baseline.json").read_text())
+        (target / "release.json").write_text(json.dumps({"version": version, "omarchy": baseline["packageVersion"], "files": files}))
         return target
 
     def run_release(self, payload=None, success=True, options=()):
@@ -62,6 +63,62 @@ class ReleaseTest(unittest.TestCase):
         self.cli("uninstall")
         self.assertFalse(self.dest.exists())
         self.assertTrue((self.state / "preferences.json").exists())
+        self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
+
+    def test_managed_lock_trial_is_restorable_and_blocks_release_changes(self):
+        self.run_release()
+        self.cli("enable", "lock")
+        safe = (self.state / "safe-mode").read_bytes()
+        self.cli("lock", "status")
+        self.cli("lock", "trial")
+        self.assertTrue(self.fixture.plugins()["lightqv.cyberpunk-lock"])
+        self.assertEqual((self.state / "safe-mode").read_bytes(), safe)
+        self.cli("uninstall", success=False)
+        self.run_release(self.make_payload("v0.1.1"), success=False)
+        self.assertTrue((self.state / "lock-trial").exists())
+        self.cli("lock", "restore")
+        self.assertFalse((self.state / "lock-trial").exists())
+        self.assertTrue(self.fixture.plugins()["omarchy.lock"])
+        self.assertEqual((self.state / "safe-mode").read_bytes(), safe)
+        self.cli("check")
+
+    def test_update_reconciles_providers_before_async_theme_hook_runs(self):
+        self.run_release()
+        self.cli("enable", "all")
+        self.fixture.control.write_text(json.dumps({"skip_theme_hook": True}))
+        self.run_release(self.make_payload("v0.1.1"))
+        self.cli("check")
+        for kind in ("menu", "notifications", "osd", "polkit"):
+            self.assertTrue(self.fixture.plugins()["lightqv.cyberpunk-" + kind])
+            self.assertFalse(self.fixture.plugins()["omarchy." + kind])
+
+    def test_recovery_reconciles_old_providers_without_waiting_for_theme_hook(self):
+        self.run_release()
+        self.cli("enable", "all")
+        before = json.loads(self.fixture.config.read_text())
+        self.fixture.control.write_text(json.dumps({"skip_theme_hook": True, "palette_reply_once": "not-ready"}))
+        self.run_release(self.make_payload("v0.1.1"), success=False)
+        self.assertIn("v0.1.0", self.cli("version").stdout)
+        self.assertFalse((self.state / "release-transaction").exists())
+        self.cli("check")
+        self.assertEqual(json.loads(self.fixture.config.read_text()), before)
+
+    def test_wrong_omarchy_version_is_refused_before_live_changes(self):
+        self.fixture.control.write_text(json.dumps({"omarchy_version": "4.0.4-1"}))
+        result = self.run_release(success=False)
+        self.assertIn("supports Omarchy 4.5.0-3; found 4.0.4-1", result.stdout + result.stderr)
+        self.assertFalse(self.dest.exists())
+        self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
+
+    def test_failed_source_preflight_is_refused_before_live_changes(self):
+        audit = self.payload / "scripts/compatibility.py"
+        audit.write_text("raise SystemExit(1)\n")
+        manifest = self.payload / "release.json"
+        release = json.loads(manifest.read_text())
+        release["files"]["scripts/compatibility.py"]["sha256"] = hashlib.sha256(audit.read_bytes()).hexdigest()
+        manifest.write_text(json.dumps(release))
+        self.run_release(success=False)
+        self.assertFalse(self.dest.exists())
         self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
 
     def test_repeat_install_and_upgrade_preserve_mixed_preferences(self):

@@ -6,7 +6,7 @@
 
 Neon accents. Angular interfaces. A Cyberpunk setup you control.
 
-![Omarchy](https://img.shields.io/badge/Omarchy-4.0.4--1-ff3045?style=for-the-badge)
+![Omarchy](https://img.shields.io/badge/Omarchy-4.5.0--3-ff3045?style=for-the-badge)
 ![Hyprland](https://img.shields.io/badge/Hyprland-53e3d2?style=for-the-badge&logo=hyprland&logoColor=07090e)
 ![Quickshell](https://img.shields.io/badge/Quickshell-Qt_6-ff3045?style=for-the-badge&logo=qt&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Development-53e3d2?style=for-the-badge)
@@ -86,7 +86,7 @@ controlled; actual audio is unchanged.
 | --- | --- |
 | **Desktop** | Palette-derived shell colors, directional window borders and 13 bundled wallpapers. |
 | **Menu** | Curved command/App rows, search, stable hover, wheel navigation and mirrored Keybindings. |
-| **Notifications** | Warning icon, stepped joined frames, wrapping message reveal and animated dismissal; native DND, history and actions. |
+| **Notifications** | Top-centered warning banners with the Cyberpunk blink/reveal/unreveal sequence and theme accents at every urgency. Native 4.5 stacks, DND, history and links; action buttons appear on hover or keyboard selection. |
 | **OSD** | Turquoise volume, red mute and centered action messages; native brightness, media and microphone payloads. |
 | **Sudo / Polkit** | Frozen/dimmed backdrop, beveled password masks, a single padded red caret and cut-corner actions. |
 | **Session lock** | Matching wallpaper/prompt and a brief settling effect, with pinned native PAM and secure session-lock handling. |
@@ -112,7 +112,7 @@ theme thumbnail and offline auth previews.
 
 <a href="docs/media/wallpapers.png"><img src="docs/media/wallpapers.png" width="1000" alt="Native Omarchy wallpaper picker with the numbered Cyberpunk collection and 07 selected"></a>
 
-Use **Style → Background** in the Omarchy menu, or cycle with:
+Use **Appearance → Background** in the Omarchy menu, or cycle with:
 
 ```sh
 omarchy theme bg next
@@ -123,7 +123,7 @@ Omarchy includes those alongside the bundled collection.
 
 ## Requirements
 
-- **Omarchy 4.0.4-1** in a running Hyprland/Wayland session.
+- **Omarchy 4.5.0-3** in a running Hyprland/Wayland session.
 - Omarchy's Quickshell/Qt 6 environment, Python/PySide6, Bash, `jq`, `flock` and `grim`.
 - An unlocked, PAM-ready session with stock menu, Polkit, notifications, OSD and
   lock plugins enabled before first installation.
@@ -135,6 +135,27 @@ The session-lock generator checks the inspected upstream release. An Omarchy
 update that changes that contract needs review before custom-lock activation.
 
 [Omarchy compatibility tracking and upgrade procedure →](docs/COMPATIBILITY.md)
+
+**Upgrading from Omarchy 4.0:** keep Cyberpunk v0.1.6 until the system upgrade.
+Switch to a bundled theme first (preferences are retained), update Omarchy using
+its stable system updater, then run `cyberpunk update` and select Cyberpunk again.
+The installer rejects a different Omarchy package or changed reviewed sources
+before removing the existing installation. Custom lock activation remains gated
+by safe mode and needs separate lock/unlock acceptance.
+
+The Cyberpunk menu keeps Apps inside its application-index HUD instead of the
+4.5 dock launcher. This follows the existing menu component switch:
+`cyberpunk disable menu` or selecting a regular theme restores the stock route;
+`cyberpunk enable menu` restores the integrated Apps view on Cyberpunk. Explicit
+user menu actions still take precedence. No global menu override is installed.
+
+For a **supervised lock trial**, keep recovery access available, then use
+`cyberpunk lock status` and `cyberpunk lock trial` while unlocked. Trial only
+selects the custom provider; it does not lock the screen. Test locking and
+unlocking manually. Once unlocked, `cyberpunk lock restore` returns to the stock
+provider. Safe mode stays intact, and updates/uninstallation refuse an armed
+trial. Do not restart the shell or swap providers during a secure lock.
+
 Cyberpunk v0.1.5 adds `cyberpunk compatibility [--upstream] [--json]`
 and a general source audit to `cyberpunk check`. The repository's daily release
 monitor opens a review issue when a newer stable Omarchy release appears.

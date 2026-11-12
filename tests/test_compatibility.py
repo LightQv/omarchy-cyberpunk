@@ -103,7 +103,7 @@ class CompatibilityTest(unittest.TestCase):
         baseline = compatibility.load_baseline()
         for destination in baseline["copies"].values():
             self.assertTrue((ROOT / destination).is_file(), destination)
-        self.assertEqual(len(baseline["copies"]), 14)
+        self.assertEqual(len(baseline["copies"]), 22)
 
     def test_monitor_ignores_current_and_older_stable_releases(self):
         with patch.object(watch, "gh") as gh:

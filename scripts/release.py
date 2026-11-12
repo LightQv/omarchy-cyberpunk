@@ -194,6 +194,11 @@ def restore_view(journal, fresh=False):
         wallpaper = str(LAYOUT["theme"] / "backgrounds/01.png")
     if wallpaper and Path(wallpaper).is_file():
         native("theme", "bg", "set", wallpaper)
+    # theme-set hooks run asynchronously in 4.5. Wait on the same serialized
+    # reconciler explicitly before checking providers, including when restoring
+    # an older release after failure. A theme command returning is not an ack
+    # that its saved component choices have been applied.
+    run_script(DEST, "verify", "--repair")
     run_script(DEST, "verify")
     apply_current_palette()
 
@@ -239,6 +244,9 @@ def install(payload, setup=None, components=None, non_interactive=False):
     version = subprocess.check_output(["omarchy", "version"], env=ENV, text=True).strip()
     if version != release["omarchy"]:
         raise ValueError(f"This release supports Omarchy {release['omarchy']}; found {version}")
+    # Exact package names are not enough: local edits or mixed package files
+    # must fail before removing the previous providers or runtime.
+    subprocess.run(["python", "-B", str(payload / "scripts/compatibility.py")], env=ENV, check=True)
     subprocess.run(["python", "-c", "import PySide6.QtQuickWidgets"], env=ENV, check=True)
     lock_ready()
     if TRANSACTION.exists() or TRANSACTION.is_symlink():

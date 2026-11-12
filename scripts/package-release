@@ -17,6 +17,7 @@ RUNTIME_SCRIPTS = {
     "backup-baseline.py", "manage-bashrc.py", "interactive-sudo.sh", "render-palette", "build-lock",
     "queue-lock-transition", "wait-unlocked", "release.py", "installer_ui.py", "scheme.py",
     "compatibility.py", "omarchy-baseline.json",
+    "lock-screen", "lock-trial",
 }
 DIRECTORIES = {"theme", "askpass", "hooks", "menu-plugin", "polkit-plugin",
                "notifications-plugin", "osd-plugin", "lock-plugin"}

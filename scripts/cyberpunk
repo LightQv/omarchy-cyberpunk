@@ -14,6 +14,7 @@ usage() {
     '  compatibility [--upstream] [--json]  Audit reviewed Omarchy sources' \
     '  scheme status|toggle    Inspect or invert interface accents' \
     '  scheme set default|inverted  Select interface accents' \
+    '  lock status|trial|restore  Supervised custom-lock validation' \
      '  repair                  Apply the selected theme and saved choices' \
      '  update                  Install the latest published release' \
      '  version                 Show the installed release version' \
@@ -40,6 +41,9 @@ list_components() {
 }
 [[ $# -gt 0 ]] || { usage; exit 1; }
 case $1 in
+  lock)
+    [[ $# == 2 && ( $2 == status || $2 == trial || $2 == restore ) ]] || die 'usage: cyberpunk lock status|trial|restore'
+    exec "$PROJECT/scripts/lock-screen" "$2" ;;
   scheme)
     case ${2:-} in
       status) [[ $# == 2 ]] || die 'usage: cyberpunk scheme status'; exec python -B "$PROJECT/scripts/scheme.py" status ;;

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import qs.Commons as Commons
 import "Menu" as CyberMenu
 import "Notifications" as CyberNotifications
 import "Osd" as CyberOsd
@@ -41,7 +42,7 @@ ShellRoot {
     function filter(query: string): string { menuWidget.setFilter(query); return "ok" }
     function move(delta: string): string { menuWidget.select(Number(delta)); return "ok" }
     function closeMenu(): string { menuWidget.cancel(); return "ok" }
-    function notificationCount(): string { return String(notifications.popupModel.count) }
+    function notificationCount(): string { return Commons.IpcRegistry.call("notifications", "count", []).output }
     function osd(payload: string): string { osdWidget.open(payload); return "ok" }
     function closeOsd(): string { osdWidget.close(); return "ok" }
     function picker(payload: string): string { pickerWidget.open(payload); return "ok" }
