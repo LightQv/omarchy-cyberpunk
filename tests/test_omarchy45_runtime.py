@@ -255,6 +255,85 @@ class Omarchy45RuntimeTest(unittest.TestCase):
     def test_blink_reveal_unreveal_and_departure_lifetime(self):
         self.run_components(MOTION_QML, "CYBERPUNK_MOTION_OK")
 
+    def test_centered_text_without_letter_avatar_keeps_real_thumbnails(self):
+        self.run_components(r'''
+import QtQuick
+import Quickshell
+import "Notifications" as CyberNotifications
+import "Notifications/Store.js" as Store
+ShellRoot {
+  PanelWindow {
+    implicitWidth: 600
+    implicitHeight: 360
+    color: "transparent"
+    mask: Region {}
+    CyberNotifications.Toast {
+      id: plain
+      cardWidth: 550
+      row: Store.normalise({key: "plain", app: "CyberpunkMissingFixtureApp", summary: "<b>Centered heading</b>", body: "Centered body", duration: 0})
+    }
+    CyberNotifications.Toast {
+      id: pictured
+      y: 100
+      cardWidth: 550
+      row: Store.normalise({key: "image", app: "CyberpunkMissingFixtureApp", summary: "Screenshot", body: "Thumbnail retained", image: Quickshell.env("CYBERPUNK_TEST_IMAGE"), duration: 0})
+    }
+    CyberNotifications.Toast {
+      id: missing
+      y: 200
+      cardWidth: 550
+      row: Store.normalise({key: "missing", app: "CyberpunkMissingFixtureApp", summary: "Missing image", image: "/nonexistent-cyberpunk-fixture.png", duration: 0})
+    }
+  }
+  function named(item, name) {
+    if (item.objectName === name) return item
+    for (var child of item.children || []) {
+      var found = named(child, name)
+      if (found) return found
+    }
+    return null
+  }
+  function require(value, message) { if (!value) throw new Error(message) }
+  Timer {
+    interval: 1500
+    running: true
+    onTriggered: {
+      try {
+        for (var toast of [plain, pictured, missing]) {
+          var heading = named(toast, "cyberpunk-toast-heading")
+          var body = named(toast, "cyberpunk-toast-body")
+          var thumb = named(toast, "cyberpunk-toast-thumbnail")
+          var column = named(toast, "cyberpunk-toast-text")
+          require(heading.horizontalAlignment === Text.AlignHCenter && body.horizontalAlignment === Text.AlignHCenter,
+                  "Heading or body is not centered")
+          require(Math.abs(heading.mapToItem(toast, 0, 0).x + heading.width / 2
+                         - body.mapToItem(toast, 0, 0).x - body.width / 2) < 0.5,
+                  "Heading and body have different center axes")
+          require(heading.textFormat === Text.PlainText && body.textFormat === Text.StyledText,
+                  "Native text safety or link support changed")
+          if (toast !== pictured) {
+            require(thumb.width === 0 && !thumb.visible, "Empty or letter-avatar slot remains")
+            require(Math.abs(column.width - (toast.width - 82)) < 0.5, "Empty avatar still reserves text space")
+          } else {
+            var image = named(toast, "cyberpunk-toast-picture")
+            require(thumb.visible && thumb.width > 0 && image.status === Image.Ready && image.visible,
+                    "Real screenshot thumbnail was removed")
+          }
+        }
+        plain.hovered = true
+        var title = named(plain, "cyberpunk-toast-heading")
+        var text = named(plain, "cyberpunk-toast-body")
+        require(Math.abs(title.mapToItem(plain, 0, 0).x + title.width / 2
+                       - text.mapToItem(plain, 0, 0).x - text.width / 2) < 0.5,
+                "Hover controls shifted heading off center")
+        console.log("CYBERPUNK_CENTERED_TOAST_OK")
+        Qt.quit()
+      } catch (error) { console.error(error); Qt.exit(1) }
+    }
+  }
+}
+''', "CYBERPUNK_CENTERED_TOAST_OK")
+
     def test_frame_left_edge_is_one_connected_stepped_silhouette(self):
         import base64
         import io
@@ -351,7 +430,8 @@ ShellRoot {
                     XDG_STATE_HOME=str(home / ".local/state"), XDG_DATA_HOME=str(home / ".local/share"),
                     XDG_RUNTIME_DIR=str(runtime), DBUS_SESSION_BUS_ADDRESS=address, DBUS_SYSTEM_BUS_ADDRESS=address,
                     WAYLAND_DISPLAY=str(wayland), OMARCHY_PATH=str(package), QT_QPA_PLATFORM="wayland",
-                    CYBERPUNK_TEST_MENU=str(base / "menu.jsonc"), NO_AT_BRIDGE="1", QT_ACCESSIBILITY="0")
+                     CYBERPUNK_TEST_MENU=str(base / "menu.jsonc"), NO_AT_BRIDGE="1", QT_ACCESSIBILITY="0")
+                environment["CYBERPUNK_TEST_IMAGE"] = str(ROOT / "theme/backgrounds/01.png")
                 result = subprocess.run(["qs", "--no-color", "-p", str(base / "shell.qml")],
                     env=environment, capture_output=True, text=True, timeout=25)
                 output = result.stdout + result.stderr

@@ -210,6 +210,40 @@ def port_toast(text):
                 '    clip: true\n  }\n\n'
                 '  Item {\n    id: body\n    parent: panelReveal\n'
                 '    x: -panelReveal.x\n    width: card.width')
+    text = once(text, "      // The sender's image, else the icon resolved for its source, else the\n"
+                "      // glyph an Omarchy sender asked for, else the first letter of the source.",
+                '      // Keep real images, resolved app icons and sender glyphs, never a\n'
+                '      // letter-avatar placeholder or an empty slot when none is available.')
+    text = once(text, '        id: thumb\n',
+                '        id: thumb\n        objectName: "cyberpunk-toast-thumbnail"\n')
+    text = once(text, '        readonly property bool lettered: !pictured && !glyphed && !card.anonymous && !card.glyphLed\n', '')
+    text = once(text, 'width: pictured || lettered ? slot : glyphed ?',
+                'width: pictured ? slot : glyphed ?')
+    avatar_start = text.index('        Rectangle {\n          anchors.fill: parent\n          visible: thumb.lettered')
+    avatar_end = text.index('        Text {\n          id: glyphText', avatar_start)
+    text = text[:avatar_start] + text[avatar_end:]
+    text = once(text, '          id: picture\n',
+                '          id: picture\n          objectName: "cyberpunk-toast-picture"\n')
+    text = once(text, '        id: column\n',
+                '        id: column\n        objectName: "cyberpunk-toast-text"\n')
+    text = once(text, '            id: title\n            anchors.left: parent.left',
+                '            id: title\n            objectName: "cyberpunk-toast-heading"\n'
+                '            anchors.horizontalCenter: parent.horizontalCenter')
+    text = once(text, '            width: Math.max(1, parent.width - rightSide.width\n'
+                '                   - (titleMarks.visible ? titleMarks.width + Style.space(7) : 0)\n'
+                '                   - Style.space(8))',
+                '            // Symmetric room for controls keeps heading and body on one axis.\n'
+                '            width: Math.max(1, parent.width - 2 * (rightSide.width\n'
+                '                    + (titleMarks.visible ? titleMarks.width + Style.space(7) : 0)\n'
+                '                    + Style.space(8)))\n'
+                '            horizontalAlignment: Text.AlignHCenter')
+    text = once(text, '               ? title.x + title.width - titleInk - Style.space(7) - width\n'
+                '               : title.x + titleInk + Style.space(7)',
+                '               ? title.x + (title.width - titleInk) / 2 - Style.space(7) - width\n'
+                '               : title.x + (title.width + titleInk) / 2 + Style.space(7)')
+    text = once(text, '          id: bodyBox\n',
+                '          id: bodyBox\n          objectName: "cyberpunk-toast-body"\n'
+                '          horizontalAlignment: Text.AlignHCenter\n')
     return text
 
 

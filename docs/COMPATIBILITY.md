@@ -80,6 +80,20 @@ blink, panel reveal/retraction, native notification handling and lock policy are
 unchanged. A rendered-pixel regression checks opaque continuity across both
 parts at short and tall card heights, using the actual fractional render scale.
 
+### v0.2.5 centered text without placeholder avatars
+
+Center the heading and body on the same text-column axis, reserving symmetric
+heading space for timestamps, close controls and code marks. Remove the native
+letter-square avatar and its empty layout slot. Real images/screenshot thumbnails,
+resolved application icons and explicit sender glyphs remain available; failed
+images do not produce a replacement letter square. Native plain/styled text
+safety, links, actions, motion and the connected border are unchanged.
+
+Runtime coverage checks matching center axes, alignment with hover controls,
+plain-text heading safety, thumbnail loading, and full text width when no image
+is available. Live acceptance includes an unlocked shell restart to evict stale
+child QML, following the cache issue observed after v0.2.4.
+
 The old notification history is retired by Omarchy's own migration. Back it up
 before updating; do not copy its old JSON files over the 4.5 store.
 

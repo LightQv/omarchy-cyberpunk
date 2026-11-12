@@ -278,17 +278,17 @@ Item {
                 topMargin: plate.contentTopInset + card.contentPaddingY }
       spacing: thumb.compact ? Style.space(8) : Style.space(12)
 
-      // The sender's image, else the icon resolved for its source, else the
-      // glyph an Omarchy sender asked for, else the first letter of the source.
+      // Keep real images, resolved app icons and sender glyphs, never a
+      // letter-avatar placeholder or an empty slot when none is available.
       Item {
         id: thumb
+        objectName: "cyberpunk-toast-thumbnail"
         readonly property bool pictured: picture.status === Image.Ready && best !== ""
         readonly property bool glyphed: !pictured && String(card.row.glyph || "").length > 0
-        readonly property bool lettered: !pictured && !glyphed && !card.anonymous && !card.glyphLed
         // A one-line toast keeps its glyph at text size beside the line.
         readonly property bool compact: glyphed && !card.hasBody
         readonly property real slot: Style.space(40)
-        width: pictured || lettered ? slot : glyphed ? (compact ? glyphText.implicitWidth : slot) : 0
+        width: pictured ? slot : glyphed ? (compact ? glyphText.implicitWidth : slot) : 0
         height: width > 0 ? (compact ? glyphText.implicitHeight : slot) : 0
         visible: width > 0
         y: Math.max(0, (card.restingBlock - height) / 2)
@@ -332,23 +332,6 @@ Item {
         readonly property bool photo: best !== "" && best === sent
         readonly property bool mono: !photo && Icons.isSymbolic(best)
 
-        Rectangle {
-          anchors.fill: parent
-          visible: thumb.lettered
-          radius: Style.cornerRadius
-          color: Style.normalFillFor(Commons.Color.notifications.text, card.accentColor, Commons.Color.urgent)
-
-          Text {
-            textFormat: Text.PlainText
-            anchors.centerIn: parent
-            text: String(card.row.source || card.row.app || "?").substring(0, 1).toUpperCase()
-            color: card.dimColor
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            font.weight: Font.DemiBold
-          }
-        }
-
         Text {
           id: glyphText
           textFormat: Text.PlainText
@@ -362,6 +345,7 @@ Item {
 
         Image {
           id: picture
+          objectName: "cyberpunk-toast-picture"
           anchors.fill: parent
           visible: thumb.pictured
           source: card.reloading ? "" : thumb.best
@@ -401,6 +385,7 @@ Item {
 
       Column {
         id: column
+        objectName: "cyberpunk-toast-text"
         y: card.textOffset
         width: layout.width - (thumb.visible ? thumb.width + layout.spacing : 0)
         spacing: Style.space(3)
@@ -415,11 +400,14 @@ Item {
           Text {
             textFormat: Text.PlainText
             id: title
-            anchors.left: parent.left
+            objectName: "cyberpunk-toast-heading"
+            anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(1, parent.width - rightSide.width
-                   - (titleMarks.visible ? titleMarks.width + Style.space(7) : 0)
-                   - Style.space(8))
+            // Symmetric room for controls keeps heading and body on one axis.
+            width: Math.max(1, parent.width - 2 * (rightSide.width
+                    + (titleMarks.visible ? titleMarks.width + Style.space(7) : 0)
+                    + Style.space(8)))
+            horizontalAlignment: Text.AlignHCenter
             text: card.redacted ? I18n.t("notifications.redactedSummary") : String(card.row.summary || "")
             color: Commons.Color.notifications.text
             font.family: "JetBrainsMono Nerd Font"
@@ -437,8 +425,8 @@ Item {
             // Placed by arithmetic, so it follows a right-to-left card itself.
             readonly property real titleInk: Math.min(title.implicitWidth, title.width)
             x: card.LayoutMirroring.enabled
-               ? title.x + title.width - titleInk - Style.space(7) - width
-               : title.x + titleInk + Style.space(7)
+               ? title.x + (title.width - titleInk) / 2 - Style.space(7) - width
+               : title.x + (title.width + titleInk) / 2 + Style.space(7)
             spacing: Style.space(5)
 
             Repeater {
@@ -523,6 +511,8 @@ Item {
         // keeps links clickable, and can still end a long body in an ellipsis.
         Text {
           id: bodyBox
+          objectName: "cyberpunk-toast-body"
+          horizontalAlignment: Text.AlignHCenter
           width: parent.width
           // The closed height, read only by the icon so it does not move.
           readonly property real restHeight: Math.ceil(Math.max(1, metrics.height) * Math.min(2, lineCount))
