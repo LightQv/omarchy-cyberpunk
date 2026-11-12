@@ -45,8 +45,22 @@ Canvas {
     ctx.shadowColor = String(accent)
     ctx.shadowBlur = 8
     ctx.lineWidth = 1.6
-    ctx.fillRect(left - Style.space(3), inset, Style.space(3), height - inset * 2)
-    ctx.fillRect(left - Style.space(7), inset + Style.space(7), Style.space(3), Math.max(0, height - inset * 2 - Style.space(12)))
+    // One silhouette: the shorter outer shoulder touches the full-height
+    // edge, without a transparent seam or overlapping alpha during a blink.
+    var edge = Style.space(3)
+    var shoulderTop = Math.min(height - inset, inset + Style.space(7))
+    var shoulderBottom = Math.max(shoulderTop, height - inset - Style.space(5))
+    ctx.beginPath()
+    ctx.moveTo(left - edge, inset)
+    ctx.lineTo(left, inset)
+    ctx.lineTo(left, height - inset)
+    ctx.lineTo(left - edge, height - inset)
+    ctx.lineTo(left - edge, shoulderBottom)
+    ctx.lineTo(left - edge * 2, shoulderBottom)
+    ctx.lineTo(left - edge * 2, shoulderTop)
+    ctx.lineTo(left - edge, shoulderTop)
+    ctx.closePath()
+    ctx.fill()
     var mid = height / 2
     var radius = Math.min(Style.space(19), height / 2 - Style.space(5))
     ctx.beginPath()

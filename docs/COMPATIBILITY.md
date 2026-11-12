@@ -71,6 +71,15 @@ is restored. Private-bus runtime tests sample the actual motion phases and
 exercise early exit, interaction, animations-off, departure cleanup and a sender
 replacement during exit.
 
+### v0.2.4 connected toast edge
+
+Replace the two separated left-border strips with one filled stepped silhouette.
+The shorter outer shoulder now touches the full-height edge, creating a partly
+thicker side without a transparent seam or overlapping pulse opacity. Warning
+blink, panel reveal/retraction, native notification handling and lock policy are
+unchanged. A rendered-pixel regression checks opaque continuity across both
+parts at short and tall card heights, using the actual fractional render scale.
+
 The old notification history is retired by Omarchy's own migration. Back it up
 before updating; do not copy its old JSON files over the 4.5 store.
 

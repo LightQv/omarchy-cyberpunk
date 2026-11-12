@@ -255,6 +255,57 @@ class Omarchy45RuntimeTest(unittest.TestCase):
     def test_blink_reveal_unreveal_and_departure_lifetime(self):
         self.run_components(MOTION_QML, "CYBERPUNK_MOTION_OK")
 
+    def test_frame_left_edge_is_one_connected_stepped_silhouette(self):
+        import base64
+        import io
+        import re
+        from PIL import Image
+
+        output = self.run_components(r'''
+import QtQuick
+import Quickshell
+import qs.Commons
+import "Notifications" as CyberNotifications
+ShellRoot {
+  PanelWindow {
+    implicitWidth: Style.space(350)
+    implicitHeight: Style.space(180)
+    color: "transparent"
+    mask: Region {}
+    CyberNotifications.CyberpunkFrame { id: shortFrame; width: Style.space(220); height: Style.space(48); accent: "#ff0000" }
+    CyberNotifications.CyberpunkFrame { id: tallFrame; y: Style.space(50); width: Style.space(330); height: Style.space(128); accent: "#ff0000" }
+  }
+  Timer {
+    interval: 300
+    running: true
+    onTriggered: {
+      try {
+        for (var frame of [shortFrame, tallFrame]) {
+          console.log("CYBERPUNK_FRAME_IMAGE:" + JSON.stringify({
+            width: frame.width, height: frame.height, left: Style.space(62), edge: Style.space(3),
+            image: frame.toDataURL("image/png")
+          }))
+        }
+        console.log("CYBERPUNK_FRAME_EDGE_OK")
+        Qt.quit()
+      } catch (error) { console.error(error); Qt.exit(1) }
+    }
+  }
+}
+''', "CYBERPUNK_FRAME_EDGE_OK")
+        frames = re.findall(r"CYBERPUNK_FRAME_IMAGE:(\{.*\})", output)
+        self.assertEqual(len(frames), 2, output)
+        for encoded in frames:
+            frame = json.loads(encoded)
+            image = Image.open(io.BytesIO(base64.b64decode(frame["image"].split(",", 1)[1]))).convert("RGBA")
+            # Canvas backing pixels follow fractional output scale, not the
+            # rounded Screen.devicePixelRatio. Derive the actual render ratio.
+            ratio = image.width / frame["width"]
+            left, edge = frame["left"], frame["edge"]
+            for x in range(int(left - edge * 2), int(left)):
+                pixel = image.getpixel((int((x + 0.5) * ratio), int(frame["height"] / 2 * ratio)))
+                self.assertEqual(pixel, (255, 0, 0, 255), (frame["height"], x, pixel))
+
     def run_components(self, qml, marker):
         package = Path(PACKAGE)
         with tempfile.TemporaryDirectory(prefix="cyberpunk-45-test-", dir="/tmp/opencode") as directory:
@@ -308,6 +359,7 @@ class Omarchy45RuntimeTest(unittest.TestCase):
                 self.assertIn(marker, output)
                 for error in ("ReferenceError:", "TypeError:", "Cannot assign to non-existent", "is not a type", "Binding loop detected"):
                     self.assertNotIn(error, output, output)
+                return output
             finally:
                 bus.terminate()
                 bus.communicate(timeout=5)
