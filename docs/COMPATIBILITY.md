@@ -94,6 +94,17 @@ plain-text heading safety, thumbnail loading, and full text width when no image
 is available. Live acceptance includes an unlocked shell restart to evict stale
 child QML, following the cache issue observed after v0.2.4.
 
+### v0.2.6 quieter collapsed stacks
+
+Draw the warning triangle only on each collapsed stack's front card. Rear cards
+keep their panel and stepped edge, so the native grouping remains visible
+without repeating the warning symbol. Expanded cards each show their warning;
+promoting a rear card restores its symbol. Notification layout, delivery,
+actions, centered text, thumbnails and motion remain unchanged.
+
+Runtime tests exercise collapse/expand/front promotion and inspect rendered
+pixels to confirm hidden warnings disappear while the connected edge remains.
+
 The old notification history is retired by Omarchy's own migration. Back it up
 before updating; do not copy its old JSON files over the 4.5 store.
 

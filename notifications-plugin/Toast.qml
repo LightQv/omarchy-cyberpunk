@@ -237,10 +237,12 @@ Item {
     color: "transparent"
     borderSpec: Border.none()
     CyberpunkFrame {
+      objectName: "cyberpunk-toast-frame"
       anchors.fill: parent
       accent: card.accentColor
       revealFraction: card.revealFraction
       symbolOpacity: card.symbolOpacity
+      showWarning: card.expanded || card.place.front === true
     }
   }
 

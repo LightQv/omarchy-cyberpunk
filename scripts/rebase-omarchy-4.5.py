@@ -194,10 +194,12 @@ def port_toast(text):
                 '  }\n')
     text = once(text, '    CyberpunkFrame { anchors.fill: parent; accent: card.accentColor }',
                 '    CyberpunkFrame {\n'
+                '      objectName: "cyberpunk-toast-frame"\n'
                 '      anchors.fill: parent\n'
                 '      accent: card.accentColor\n'
                 '      revealFraction: card.revealFraction\n'
                 '      symbolOpacity: card.symbolOpacity\n'
+                '      showWarning: card.expanded || card.place.front === true\n'
                 '    }')
     text = once(text, '    visible: card.selected\n',
                 '    visible: card.selected\n    opacity: card.revealFraction\n')

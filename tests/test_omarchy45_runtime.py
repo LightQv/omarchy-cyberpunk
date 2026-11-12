@@ -326,6 +326,16 @@ ShellRoot {
         require(Math.abs(title.mapToItem(plain, 0, 0).x + title.width / 2
                        - text.mapToItem(plain, 0, 0).x - text.width / 2) < 0.5,
                 "Hover controls shifted heading off center")
+        var frame = named(plain, "cyberpunk-toast-frame")
+        require(frame.showWarning, "Front card lost its warning")
+        plain.place = ({front: false, hidden: false, z: 1})
+        require(!frame.showWarning, "Collapsed back card repeats the warning")
+        plain.expanded = true
+        require(frame.showWarning, "Expanded card lost its warning")
+        plain.expanded = false
+        require(!frame.showWarning, "Collapsing the stack retained the back warning")
+        plain.place = ({front: true, hidden: false, z: 1})
+        require(frame.showWarning, "Promoted front card did not regain its warning")
         console.log("CYBERPUNK_CENTERED_TOAST_OK")
         Qt.quit()
       } catch (error) { console.error(error); Qt.exit(1) }
@@ -352,7 +362,7 @@ ShellRoot {
     color: "transparent"
     mask: Region {}
     CyberNotifications.CyberpunkFrame { id: shortFrame; width: Style.space(220); height: Style.space(48); accent: "#ff0000" }
-    CyberNotifications.CyberpunkFrame { id: tallFrame; y: Style.space(50); width: Style.space(330); height: Style.space(128); accent: "#ff0000" }
+    CyberNotifications.CyberpunkFrame { id: tallFrame; y: Style.space(50); width: Style.space(330); height: Style.space(128); accent: "#ff0000"; showWarning: false }
   }
   Timer {
     interval: 300
@@ -362,6 +372,7 @@ ShellRoot {
         for (var frame of [shortFrame, tallFrame]) {
           console.log("CYBERPUNK_FRAME_IMAGE:" + JSON.stringify({
             width: frame.width, height: frame.height, left: Style.space(62), edge: Style.space(3),
+            showWarning: frame.showWarning, iconX: Style.space(27),
             image: frame.toDataURL("image/png")
           }))
         }
@@ -384,6 +395,13 @@ ShellRoot {
             for x in range(int(left - edge * 2), int(left)):
                 pixel = image.getpixel((int((x + 0.5) * ratio), int(frame["height"] / 2 * ratio)))
                 self.assertEqual(pixel, (255, 0, 0, 255), (frame["height"], x, pixel))
+            icon = image.crop((int((frame["iconX"] - 10) * ratio), int((frame["height"] / 2 - 12) * ratio),
+                               int((frame["iconX"] + 10) * ratio), int((frame["height"] / 2 + 12) * ratio)))
+            maximum_alpha = icon.getchannel("A").getextrema()[1]
+            if frame["showWarning"]:
+                self.assertGreaterEqual(maximum_alpha, 250, "Front warning was not painted")
+            else:
+                self.assertLessEqual(maximum_alpha, 5, "Back-card warning is still painted")
 
     def run_components(self, qml, marker):
         package = Path(PACKAGE)

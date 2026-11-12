@@ -8,6 +8,8 @@ Canvas {
   property color accent: Commons.Color.notifications.countdown
   property real revealFraction: 1
   property real symbolOpacity: 1
+  property bool showWarning: true
+  onShowWarningChanged: requestPaint()
   onRevealFractionChanged: requestPaint()
   onSymbolOpacityChanged: requestPaint()
   onAccentChanged: requestPaint()
@@ -61,6 +63,8 @@ Canvas {
     ctx.lineTo(left - edge, shoulderTop)
     ctx.closePath()
     ctx.fill()
+    // Back cards retain their panel/stepped edge, not another warning icon.
+    if (!showWarning) return
     var mid = height / 2
     var radius = Math.min(Style.space(19), height / 2 - Style.space(5))
     ctx.beginPath()
