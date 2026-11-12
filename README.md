@@ -293,8 +293,21 @@ shows both the saved preference and actual provider, including blocked/pending
 activation. An active secure lock stays intact; provider changes wait until
 unlock. Safe-mode clearance remains a separate development acceptance gate.
 
-Supervised trial/restore scripts remain internal developer tooling. Everyday
-users only need the same enable/disable commands as the other components.
+The public CLI also supports supervised custom-lock validation:
+
+```sh
+cyberpunk lock status
+cyberpunk lock trial
+cyberpunk lock restore
+```
+
+Keep recovery-terminal access available before starting a trial. Run `trial`
+only while unlocked and PAM-ready; it selects the custom provider without
+locking the screen or clearing safe mode. Test locking and unlocking manually,
+then run `restore` while unlocked to end the trial and restore the stock provider.
+Updates and uninstallation are blocked while a trial is armed. Never restart the
+shell or change providers during a secure lock. A successful trial does not
+permanently enable the custom lock or clear safe mode.
 
 ### Sudo and Polkit
 
