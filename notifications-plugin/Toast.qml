@@ -27,6 +27,14 @@ Item {
   property double now: Date.now()
   property real cardWidth: Style.space(380)
   property var actions: []                   // what the sender put on the wire
+  readonly property real revealFraction: motion.revealFraction
+  readonly property real symbolOpacity: motion.symbolOpacity
+  CyberpunkMotion {
+    id: motion
+    animated: card.scene !== null && !card.place.hidden
+    leaving: card.place.leaving === true
+    interactive: card.hovered || card.selected
+  }
 
   // The pointer in the deck's coordinates: the deck owns hover, so cards and
   // their buttons work out what is under it themselves.
@@ -228,7 +236,12 @@ Item {
     radius: 0
     color: "transparent"
     borderSpec: Border.none()
-    CyberpunkFrame { anchors.fill: parent; accent: card.accentColor }
+    CyberpunkFrame {
+      anchors.fill: parent
+      accent: card.accentColor
+      revealFraction: card.revealFraction
+      symbolOpacity: card.symbolOpacity
+    }
   }
 
   // The keyboard's card is tinted with the theme's hover fill, buttons and all.
@@ -237,12 +250,23 @@ Item {
     anchors { leftMargin: plate.borderLeft; rightMargin: plate.borderRight
               topMargin: plate.borderTop; bottomMargin: plate.borderBottom }
     visible: card.selected
+    opacity: card.revealFraction
     color: Style.hoverFillFor(Commons.Color.notifications.text, Commons.Color.accent)
   }
 
   Item {
+    id: panelReveal
+    x: Style.space(62)
+    width: Math.max(0, card.width - x) * card.revealFraction
+    height: card.drawnHeight
+    clip: true
+  }
+
+  Item {
     id: body
-    width: parent.width
+    parent: panelReveal
+    x: -panelReveal.x
+    width: card.width
     height: card.drawnHeight
 
     Row {

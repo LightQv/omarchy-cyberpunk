@@ -53,6 +53,24 @@ old-release recovery. Tests delay the native theme hook entirely and exercise
 successful updates as well as failed-update recovery. Published tags and
 archives are never replaced to fix a failed candidate.
 
+### v0.2.3 notification motion
+
+Restore the original warning sequence: two 220ms down/up pulses, a third pulse
+while the panel reveals left-to-right over 550ms, then a 360ms retraction and
+160ms warning fade on exit. These deliberately retain Cyberpunk's original
+cinematic timing rather than the stock shell's short fade. All durations obey
+the shell's animations-off setting. Hover or keyboard selection completes the
+reveal immediately so native actions remain accessible.
+
+The native 4.5 arrival, stack layout, expiry, close reasons, sender replacement,
+history and action execution remain in use. Departure snapshots hold their
+position and opacity while the card retracts; removal waits for the bounded
+520ms visual deadline, not whichever unrelated scene movement finishes first.
+Keyboard/explicit instant dismissals remain immediate. No old delivery engine
+is restored. Private-bus runtime tests sample the actual motion phases and
+exercise early exit, interaction, animations-off, departure cleanup and a sender
+replacement during exit.
+
 The old notification history is retired by Omarchy's own migration. Back it up
 before updating; do not copy its old JSON files over the 4.5 store.
 

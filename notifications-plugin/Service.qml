@@ -442,6 +442,7 @@ Item {
   readonly property var sceneCurve: Style.easeOut
   readonly property int arriveDuration: 250
   readonly property int leaveDuration: 200
+  readonly property int toastExitDuration: 520 // panel retract, then warning fade
   property int sceneDuration: arriveDuration
   // How far a card drops in from, and rises by on its way out.
   readonly property real travel: Style.space(24)
@@ -775,9 +776,9 @@ Item {
       // Under the cards closing in, so the one taking its place covers it on
       // the way up. Its text goes first, or it would read through them; the
       // last card keeps its words, with nothing to cover it.
-      gone[keys[j]] = { y: from.y - travel, scale: from.scale, opacity: 0, height: from.height,
+      gone[keys[j]] = { y: from.y, scale: from.scale, opacity: from.opacity, height: from.height,
                         z: 0, front: staying === 0, hidden: place ? place.hidden === true : true,
-                        leaving: true, until: Date.now() + Style.duration(leaveDuration) }
+                        leaving: true, until: Date.now() + Style.duration(toastExitDuration) }
     }
     departures = gone
     leaving = next
@@ -790,7 +791,7 @@ Item {
   // closed card on screen, and counted against the limit, for good.
   Timer {
     id: departureDeadline
-    interval: Math.max(1, Style.duration(service.leaveDuration))
+    interval: Math.max(1, Style.duration(service.toastExitDuration))
     onTriggered: service.finishDeparted(Date.now())
   }
 
@@ -805,7 +806,10 @@ Item {
 
   function finishLeaving() {
     var keys = Object.keys(leaving)
-    for (var i = 0; i < keys.length; i++) finishClose(keys[i], leaving[keys[i]])
+    for (var i = 0; i < keys.length; i++) {
+      var departure = departures[keys[i]]
+      if (!departure || departure.until <= Date.now()) finishClose(keys[i], leaving[keys[i]])
+    }
   }
 
   function unmarkLeaving(key) {

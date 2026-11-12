@@ -182,11 +182,39 @@ def port_toast(text):
                 'readonly property bool shown: card.actionsVisible')
     text = once(text, 'Qt.rgba(card.dimColor.r, card.dimColor.g, card.dimColor.b, 0.35)',
                 'Qt.rgba(card.accentColor.r, card.accentColor.g, card.accentColor.b, 0.55)')
+    text = once(text, '  property var actions: []                   // what the sender put on the wire\n',
+                '  property var actions: []                   // what the sender put on the wire\n'
+                '  readonly property real revealFraction: motion.revealFraction\n'
+                '  readonly property real symbolOpacity: motion.symbolOpacity\n'
+                '  CyberpunkMotion {\n'
+                '    id: motion\n'
+                '    animated: card.scene !== null && !card.place.hidden\n'
+                '    leaving: card.place.leaving === true\n'
+                '    interactive: card.hovered || card.selected\n'
+                '  }\n')
+    text = once(text, '    CyberpunkFrame { anchors.fill: parent; accent: card.accentColor }',
+                '    CyberpunkFrame {\n'
+                '      anchors.fill: parent\n'
+                '      accent: card.accentColor\n'
+                '      revealFraction: card.revealFraction\n'
+                '      symbolOpacity: card.symbolOpacity\n'
+                '    }')
+    text = once(text, '    visible: card.selected\n',
+                '    visible: card.selected\n    opacity: card.revealFraction\n')
+    text = once(text, '  Item {\n    id: body\n    width: parent.width',
+                '  Item {\n'
+                '    id: panelReveal\n'
+                '    x: Style.space(62)\n'
+                '    width: Math.max(0, card.width - x) * card.revealFraction\n'
+                '    height: card.drawnHeight\n'
+                '    clip: true\n  }\n\n'
+                '  Item {\n    id: body\n    parent: panelReveal\n'
+                '    x: -panelReveal.x\n    width: card.width')
     return text
 
 
 def port_notifications(text):
-    """Change only banner geometry; leave the native notification engine intact."""
+    """Adapt banner geometry and departure visuals, retaining native delivery."""
     text = once(text, 'readonly property int notificationWidth: Style.space(380)',
                 'readonly property int notificationWidth: Style.space(550)')
     text = once(text, '      anchors { top: true; bottom: true; right: true }\n'
@@ -212,6 +240,20 @@ def port_notifications(text):
     text = once(text, 'stepAside: s.stepAside === true, showing: s.showingNotifications === true })',
                 'stepAside: s.stepAside === true, showing: s.showingNotifications === true,\n'
                 '                 bannerCenterX: s.bannerCenterX, bannerTop: s.bannerTop, width: s.width, height: s.height })')
+    text = once(text, '  readonly property int leaveDuration: 200',
+                '  readonly property int leaveDuration: 200\n'
+                '  readonly property int toastExitDuration: 520 // panel retract, then warning fade')
+    text = once(text, 'gone[keys[j]] = { y: from.y - travel, scale: from.scale, opacity: 0, height: from.height,',
+                'gone[keys[j]] = { y: from.y, scale: from.scale, opacity: from.opacity, height: from.height,')
+    text = once(text, 'leaving: true, until: Date.now() + Style.duration(leaveDuration)',
+                'leaving: true, until: Date.now() + Style.duration(toastExitDuration)')
+    text = once(text, 'interval: Math.max(1, Style.duration(service.leaveDuration))',
+                'interval: Math.max(1, Style.duration(service.toastExitDuration))')
+    text = once(text, '    for (var i = 0; i < keys.length; i++) finishClose(keys[i], leaving[keys[i]])',
+                '    for (var i = 0; i < keys.length; i++) {\n'
+                '      var departure = departures[keys[i]]\n'
+                '      if (!departure || departure.until <= Date.now()) finishClose(keys[i], leaving[keys[i]])\n'
+                '    }')
     return text
 
 

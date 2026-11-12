@@ -114,6 +114,129 @@ ShellRoot {
 }
 '''
 
+MOTION_QML = r'''
+import QtQuick
+import Quickshell
+import qs.Commons as Commons
+import "Notifications" as CyberNotifications
+import "Notifications/Store.js" as Store
+
+ShellRoot {
+  CyberNotifications.Service { id: service }
+  CyberNotifications.CyberpunkMotion { id: motion }
+  CyberNotifications.CyberpunkMotion { id: interrupted }
+  CyberNotifications.CyberpunkMotion { id: still; animated: false }
+  CyberNotifications.CyberpunkMotion { id: delayed; animated: false }
+  QtObject {
+    id: testScene
+    property bool jumping: false
+    function at(key, what) { return what === "y" ? 0 : 1 }
+  }
+  CyberNotifications.Toast {
+    id: toast
+    scene: testScene
+    row: ({key: "visual", summary: "Animation fixture", duration: 0})
+  }
+  property int stage: 0
+  function require(value, message) { if (!value) throw new Error(message) }
+  Timer {
+    id: steps
+    interval: 120
+    running: true
+    onTriggered: {
+      try {
+        if (stage === 0) {
+          require(motion.entering && motion.revealFraction === 0 && motion.symbolOpacity < 0.9,
+                  "Warning must blink before the panel appears")
+          require(still.revealFraction === 1 && !still.entering, "Static preview must not animate")
+          require(toast.revealFraction === 0 && toast.symbolOpacity < 0.9, "Toast did not bind its visual clock")
+          delayed.animated = true
+          require(delayed.entering && delayed.revealFraction === 0,
+                  "Late scene assignment skipped the blink/reveal")
+          interrupted.leaving = true
+          interval = 420
+        } else if (stage === 1) {
+          require(interrupted.revealFraction === 0 && !interrupted.entering,
+                  "Closing during blink restarted the reveal")
+          require(motion.revealFraction === 0, "Text appeared during the first two pulses")
+          interval = 520
+        } else if (stage === 2) {
+          require(motion.revealFraction > 0 && motion.revealFraction < 1,
+                  "Third pulse must reveal the panel progressively")
+          interval = 540
+        } else if (stage === 3) {
+          require(motion.revealFraction === 1 && motion.symbolOpacity === 1 && !motion.entering,
+                  "Reveal did not settle")
+          motion.leaving = true
+          toast.place = ({leaving: true, hidden: false, front: true, z: 1})
+          service.showRow(Store.normalise({key: "departure", summary: "Fixture", duration: 0}))
+          service.showRow(Store.normalise({key: "revive", summary: "Replacement", duration: 0}))
+          interval = 120
+        } else if (stage === 4) {
+          require(motion.revealFraction > 0 && motion.revealFraction < 1 && motion.symbolOpacity === 1,
+                  "Exit must retract the panel before fading the warning")
+          service.closeToast("departure", "expired")
+          service.closeToast("revive", "dismissed")
+          require(service.departures.departure.until <= Date.now() + 520,
+                  "Departure has an unbounded visual deadline")
+          // Control the deadline while testing scene completion: compositor
+          // scheduling must not turn a slow CI frame into a timing failure.
+          service.departures.departure.until = Date.now() + 2000
+          service.finishLeaving()
+          require(service.rowIndexFor("departure") >= 0, "Scene retarget bypassed exit deadline")
+          service.showRow(Store.normalise({key: "revive", summary: "Updated during exit", duration: 0}))
+          interval = 260
+        } else if (stage === 5) {
+          require(motion.revealFraction === 0 && motion.symbolOpacity < 1,
+                  "Warning did not fade after retraction")
+          require(service.rowIndexFor("departure") >= 0,
+                  "Native scene destroyed the card before its unreveal finished")
+          service.finishLeaving()
+          require(service.rowIndexFor("departure") >= 0, "Scene retarget bypassed exit deadline")
+          service.departures.departure.until = Date.now() - 1
+          service.finishDeparted(Date.now())
+          interval = 400
+        } else if (stage === 6) {
+          require(motion.symbolOpacity === 0 && !motion.exiting, "Exit did not finish")
+          require(service.rowIndexFor("departure") < 0 && !service.liveKeys.departure,
+                  "Departure leaked a row or reservation")
+          require(service.rowIndexFor("revive") >= 0 && !service.leaving.revive,
+                  "Replacement during unreveal was deleted by an old deadline")
+          service.closeToast("revive", "dismissed", true)
+          service.showRow(Store.normalise({key: "instant", summary: "Keyboard", duration: 0}))
+          motion.leaving = false
+          motion.enter()
+          motion.interactive = true
+          require(motion.revealFraction === 1 && !motion.entering, "Interaction must reveal actions immediately")
+          interval = 60
+        } else if (stage === 7) {
+          service.closeToast("instant", "dismissed", true)
+          interval = 60
+        } else {
+          require(service.rowIndexFor("instant") < 0, "Keyboard dismissal stopped being immediate")
+          require(toast.revealFraction === 0 && toast.symbolOpacity === 0, "Toast did not finish its unreveal")
+          Commons.Style.reduceMotion = true
+          motion.interactive = false
+          motion.enter()
+          require(motion.revealFraction === 1 && !motion.entering, "Animations-off still blinks")
+          motion.leaving = true
+          require(motion.revealFraction === 0 && motion.symbolOpacity === 0 && !motion.exiting,
+                  "Animations-off still animates departure")
+          console.log("CYBERPUNK_MOTION_OK")
+          Qt.quit()
+          return
+        }
+        stage++
+        steps.start()
+      } catch (error) {
+        console.error("CYBERPUNK_MOTION_FAILED: " + error)
+        Qt.exit(1)
+      }
+    }
+  }
+}
+'''
+
 
 @unittest.skipUnless(PACKAGE, "Set OMARCHY_TEST_ROOT to a verified 4.5 package tree")
 class Omarchy45RuntimeTest(unittest.TestCase):
@@ -127,6 +250,12 @@ class Omarchy45RuntimeTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_components_load_and_keep_native_contracts(self):
+        self.run_components(QML, "CYBERPUNK_45_COMPONENTS_OK")
+
+    def test_blink_reveal_unreveal_and_departure_lifetime(self):
+        self.run_components(MOTION_QML, "CYBERPUNK_MOTION_OK")
+
+    def run_components(self, qml, marker):
         package = Path(PACKAGE)
         with tempfile.TemporaryDirectory(prefix="cyberpunk-45-test-", dir="/tmp/opencode") as directory:
             base = Path(directory)
@@ -148,7 +277,7 @@ class Omarchy45RuntimeTest(unittest.TestCase):
                     shutil.copytree(target, base / name)
                 else:
                     (base / name).symlink_to(target)
-            (base / "shell.qml").write_text(QML)
+            (base / "shell.qml").write_text(qml)
             (base / "menu.jsonc").write_text(json.dumps({
                 "root": {"label": "Test"},
                 "root.disabled": {"label": "Already installed", "action": "true", "disabled": "true"},
@@ -176,7 +305,7 @@ class Omarchy45RuntimeTest(unittest.TestCase):
                     env=environment, capture_output=True, text=True, timeout=25)
                 output = result.stdout + result.stderr
                 self.assertEqual(result.returncode, 0, output)
-                self.assertIn("CYBERPUNK_45_COMPONENTS_OK", output)
+                self.assertIn(marker, output)
                 for error in ("ReferenceError:", "TypeError:", "Cannot assign to non-existent", "is not a type", "Binding loop detected"):
                     self.assertNotIn(error, output, output)
             finally:

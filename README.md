@@ -86,7 +86,7 @@ controlled; actual audio is unchanged.
 | --- | --- |
 | **Desktop** | Palette-derived shell colors, directional window borders and 13 bundled wallpapers. |
 | **Menu** | Curved command/App rows, search, stable hover, wheel navigation and mirrored Keybindings. |
-| **Notifications** | Top-centered warning banners with theme accents at every urgency. Native 4.5 stacks, DND, history and links; action buttons appear on hover or keyboard selection. |
+| **Notifications** | Top-centered warning banners with the Cyberpunk blink/reveal/unreveal sequence and theme accents at every urgency. Native 4.5 stacks, DND, history and links; action buttons appear on hover or keyboard selection. |
 | **OSD** | Turquoise volume, red mute and centered action messages; native brightness, media and microphone payloads. |
 | **Sudo / Polkit** | Frozen/dimmed backdrop, beveled password masks, a single padded red caret and cut-corner actions. |
 | **Session lock** | Matching wallpaper/prompt and a brief settling effect, with pinned native PAM and secure session-lock handling. |

@@ -86,6 +86,30 @@ def main():
             shell = subprocess.Popen(["qs", "-p", str(qml)], env=environment, stdout=logging, stderr=logging)
             try:
                 wait(lambda: ipc("ready") == "ok")
+                if os.environ.get("CYBERPUNK_PREVIEW_NOTIFICATION_MOTION") == "1":
+                    wallpaper("10.png")
+                    samples = [(0.0, frame())]
+                    started = time.monotonic()
+                    run("notify-send", "-a", "Cyberpunk Showcase", "-t", "4000",
+                        "Signal established", "Blink, reveal, hold, unreveal.")
+                    dismissal = None
+                    while time.monotonic() - started < 6:
+                        if dismissal is None and time.monotonic() - started >= 3.5:
+                            dismissal = subprocess.Popen(
+                                ["qs", "ipc", "-p", str(qml), "call", "notifications", "dismiss", "Signal established"],
+                                env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        image = frame()
+                        samples.append((time.monotonic() - started, image))
+                    if dismissal is not None and dismissal.wait(timeout=10) != 0:
+                        raise RuntimeError("Preview notification dismissal failed")
+                    def motion_frames():
+                        index = 0
+                        for tick in range(120):
+                            while index + 1 < len(samples) and samples[index + 1][0] <= tick / 20:
+                                index += 1
+                            yield samples[index][1]
+                    encode_video(motion_frames(), OUTPUT / "notification-motion.mp4", 20)
+                    return
                 if os.environ.get("CYBERPUNK_PREVIEW_APPS_ONLY") == "1":
                     wallpaper("07.png")
                     open_menu("apps")
