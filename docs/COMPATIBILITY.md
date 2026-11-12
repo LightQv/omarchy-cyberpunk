@@ -136,6 +136,46 @@ The component test isolates HOME, configuration, state, runtime and both D-Bus
 buses. It uses the current Wayland connection only for Quickshell's backend;
 it never instantiates a lock service, submits a password or changes live providers.
 
+## Validation history and scope
+
+Stable Cyberpunk v0.2.6 was accepted on Omarchy 4.5.0-3 after **97 regression
+tests**, a matching **70-file upstream source audit**, and supervised live checks
+of notification presentation, integrated Apps, preserved shortcuts, fresh login,
+custom-lock authentication, repeated lock/unlock and suspend/resume.
+See [PR #4's final acceptance record](https://github.com/LightQv/omarchy-cyberpunk/pull/4#issuecomment-6822589554).
+The tested release was promoted unchanged; installed plugin sources matched the
+merged main tree. No automatic PR CI checks were configured for that promotion.
+
+Earlier validation covered native idle locking, display blank/wake, controlled
+screensaver-class wallpaper fallback, and tests/public media/link checks from a
+clean tracked-file export. Managed release migration and recovery from an
+OpenCode-restart interruption were exercised on the live desktop with preferences,
+wallpaper, unrelated settings and the private baseline preserved. Fresh release
+installation, updates, rollback, uninstall and bootstrap integrity failures are
+covered by isolated lifecycle tests, not a pristine live first-install acceptance.
+
+**Historical suspend-focus observation:** an earlier setup required a refocus click
+after suspend/resume with both stock and themed locks; authentication then
+succeeded. Ordinary idle/DPMS wake had immediate feedback. The v0.2.6 supervised
+suspend/resume check was accepted, but did not explicitly establish whether a
+refocus click was needed. Do not treat that earlier observation as either a
+confirmed current defect or a verified fix.
+
+Pristine live first installation, physical extra-output/scale configurations,
+trackpad, fingerprint and unsupported authentication flows still require suitable
+acceptance setups. Stock lock remains the fresh-install safe-mode default.
+Boot/disk unlock and display-manager login belong to Omarchy; the former project
+boot/login experiment is retired.
+
+Additional checkout validation commands (run on the supported setup):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests
+scripts/render-palette --check
+scripts/build-lock --check
+scripts/verify --check
+```
+
 ## Read-only checks
 
 ```sh

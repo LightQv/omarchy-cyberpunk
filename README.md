@@ -226,8 +226,8 @@ protected: preserve your changes and restore the release files before updating o
 removing. Interrupted transactions retain a private recovery journal; rerun the
 installer while unlocked to recover and retry.
 
-This initial release targets the inspected Omarchy version; pristine live
-new-user/machine installation remains a qualification under **Status and development**.
+This release targets the inspected Omarchy version; pristine live
+new-user/machine installation remains a qualification under **Validation and limitations**.
 
 <details>
 <summary>Installation details</summary>
@@ -377,33 +377,23 @@ installed theme/plugin/runtime files, hooks, the CLI link and exact Bash stanza.
 Preferences and private backups are retained. Foreign files, edited markers and
 different active clones are protected. Development checkouts remain untouched.
 
-## Status and development
+## Validation and limitations
 
-**63 regression tests** and live desktop/auth/lifecycle checks passed on the
-inspected setup. Native idle locking, display blank/wake and controlled
-screensaver-class wallpaper fallback passed too.
-The tests and public media/link checks also pass from a clean tracked-file export;
-first installation in a pristine live user/session remains a release qualification.
-Managed release migration also passed on the live desktop, including recovery from
-an OpenCode-restart interruption, with preferences, wallpaper, unrelated settings
-and the private baseline preserved. Fresh release installation, updates, rollback,
-uninstall and bootstrap integrity failures are covered by isolated lifecycle tests.
+Cyberpunk **v0.2.6** passed **97 regression tests** on **Omarchy 4.5.0-3**.
+Live acceptance covered notification presentation, integrated Apps, preserved
+shortcuts, fresh login, custom-lock authentication, repeated lock/unlock and
+suspend/resume on the inspected setup.
 
-**Known suspend limitation:** both stock and themed locks required a refocus click
-after suspend/resume on this machine. Authentication succeeded after clicking;
-ordinary idle/DPMS wake passed with immediate feedback. Stock lock remains the
-safe-mode default. Physical extra-output/scale, trackpad and unsupported auth flows
-need an appropriate setup for further acceptance.
+Pristine live first installation, physical extra-output/scale configurations,
+trackpad, fingerprint and unsupported authentication flows remain unqualified.
+Stock lock remains the fresh-install safe-mode default. Earlier suspend-focus
+observations and detailed validation history are recorded in the
+[compatibility guide](docs/COMPATIBILITY.md#validation-history-and-scope).
 
-Boot/disk unlock and SDDM login remain managed by Omarchy. The former project
-boot/login experiment is retired; the active product covers desktop/session auth.
+Boot/disk unlock and display-manager login remain managed by Omarchy; this
+project covers desktop/session authentication presentation.
 
-```sh
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests
-scripts/render-palette --check
-scripts/build-lock --check
-scripts/verify --check
-```
+## Development
 
 ### Develop while using the release
 
