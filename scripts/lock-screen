@@ -15,6 +15,7 @@ if [[ $mode == status ]]; then
   "$PROJECT/scripts/lock-trial" status
   exit 0
 fi
+lifecycle_lock
 installed || die 'install the desktop integration first'
 lock_unlocked || die 'unlock and wait for PAM readiness before changing lock preferences'
 [[ -d $STATE_DIR && ! -L $STATE_DIR && $(stat -c %u "$STATE_DIR") == "$EUID" ]] || die 'untrusted project state'
@@ -30,6 +31,7 @@ if [[ $mode == trial ]]; then
   lock_enabled || die 'enable the lock preference before trial'
   unoccupied "$LOCK_TRIAL" || die 'lock trial already armed'
   "$PROJECT/scripts/build-lock" --check
+  python -B "$PROJECT/scripts/compatibility.py" || die 'review source drift before a lock trial'
   umask 077
   (set -C; printf 'lock\n' >"$LOCK_TRIAL")
 elif [[ $mode == restore ]]; then

@@ -116,6 +116,9 @@ def merge_menu(old, new):
     text = text[:start] + header + text[end:]
     text = text.replace('itemId: "dmenu.apply", disabled: false,',
                         'itemId: "dmenu.apply", sourceIndex: displayModel.count, disabled: false,')
+    text = once(text, '    var translatedDefaults = MenuModel.applyTranslations(root.defaultMenuItems, root.menuCatalog)',
+                '    var translatedDefaults = MenuInteraction.integratedApps(\n'
+                '      MenuModel.applyTranslations(root.defaultMenuItems, root.menuCatalog))')
     # The custom wheel uses source indices; upstream settleCursor still applies to displayModel.
     return text
 
@@ -161,6 +164,54 @@ def port_toast(text):
     text = once(text, 'leftMargin: plate.contentLeftInset + Style.space(12)',
                 'leftMargin: plate.contentLeftInset + Style.space(70)')
     text = text.replace('font.family: "Liberation Sans"', 'font.family: "JetBrainsMono Nerd Font"')
+    text = once(text, '  readonly property color accentColor: critical ? Commons.Color.urgent\n'
+                '                                               : (row.urgency === 0 ? dimColor : Commons.Color.notifications.countdown)',
+                '  readonly property color accentColor: row.urgency === 0\n'
+                '      ? Qt.darker(Commons.Color.notifications.countdown, 1.25)\n'
+                '      : Commons.Color.notifications.countdown')
+    # Quiet banners at rest, but every native action remains reachable by
+    # pointer or keyboard. Do not discard actions or alter their execution.
+    text = once(text, '  readonly property real targetHeight: fixedHeight + deedArea.wanted',
+                '  readonly property bool actionsVisible: allDeeds.length > 0 && (hovered || selected)\n'
+                '  readonly property real targetHeight: fixedHeight + deedArea.wanted')
+    text = once(text, 'leftMargin: plate.borderLeft; rightMargin: plate.borderRight\n'
+                '                bottomMargin: plate.borderBottom',
+                'leftMargin: Style.space(70); rightMargin: Style.space(12)\n'
+                '                bottomMargin: Style.space(5)')
+    text = once(text, 'readonly property bool shown: card.allDeeds.length > 0 && (card.expanded ? card.hovered : card.place.front)',
+                'readonly property bool shown: card.actionsVisible')
+    text = once(text, 'Qt.rgba(card.dimColor.r, card.dimColor.g, card.dimColor.b, 0.35)',
+                'Qt.rgba(card.accentColor.r, card.accentColor.g, card.accentColor.b, 0.55)')
+    return text
+
+
+def port_notifications(text):
+    """Change only banner geometry; leave the native notification engine intact."""
+    text = once(text, 'readonly property int notificationWidth: Style.space(380)',
+                'readonly property int notificationWidth: Style.space(550)')
+    text = once(text, '      anchors { top: true; bottom: true; right: true }\n'
+                '      implicitWidth: clipper.width + Style.space(10)',
+                '      anchors { top: true; bottom: true; left: true; right: true }')
+    text = once(text, '        anchors.right: parent.right\n'
+                '        anchors.top: parent.top\n'
+                '        anchors.topMargin: surface.margins.top',
+                '        x: Math.round((surface.width - width) / 2)\n'
+                '        anchors.top: parent.top\n'
+                '        anchors.topMargin: Math.max(surface.margins.top, surface.height * 0.085)')
+    text = once(text, '        width: service.notificationWidth + motionInset + surface.margins.right',
+                '        width: Math.min(surface.width, service.notificationWidth + motionInset * 2)')
+    text = once(text, '          width: service.notificationWidth\n',
+                '          width: Math.max(1, clipper.width - clipper.motionInset * 2)\n')
+    text = once(text, 'var room = screen.height - marginsFor(targetDisplayName).top - gap',
+                'var room = screen.height - Math.max(marginsFor(targetDisplayName).top, screen.height * 0.085) - gap')
+    # Introspection supports placement tests without screenshots of private data.
+    text = once(text, '      readonly property bool takesKeyboard:',
+                '      readonly property real bannerCenterX: clipper.x + deck.x + deck.width / 2\n'
+                '      readonly property real bannerTop: clipper.y\n'
+                '      readonly property bool takesKeyboard:')
+    text = once(text, 'stepAside: s.stepAside === true, showing: s.showingNotifications === true })',
+                'stepAside: s.stepAside === true, showing: s.showingNotifications === true,\n'
+                '                 bannerCenterX: s.bannerCenterX, bannerTop: s.bannerTop, width: s.width, height: s.height })')
     return text
 
 
@@ -186,8 +237,7 @@ def outputs(old_root, new_root):
         elif destination == "notifications-plugin/Toast.qml":
             content = port_toast(native)
         elif destination == "notifications-plugin/Service.qml":
-            content = once(native, 'readonly property int notificationWidth: Style.space(380)',
-                           'readonly property int notificationWidth: Style.space(550)')
+            content = port_notifications(native)
         elif destination.startswith("lock-plugin/") and destination.endswith(("Service.qml", "StockLockView.qml")):
             continue  # Generated by the independently pinned build-lock tool.
         else:

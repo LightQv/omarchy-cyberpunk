@@ -369,7 +369,8 @@ Item {
   // Catalog-only rebuilds pass skipGuards: retitling rows cannot change any
   // when/checked answer, so re-running the guard batch would be pure waste.
   function rebuildItemsFromSources(skipGuards) {
-    var translatedDefaults = MenuModel.applyTranslations(root.defaultMenuItems, root.menuCatalog)
+    var translatedDefaults = MenuInteraction.integratedApps(
+      MenuModel.applyTranslations(root.defaultMenuItems, root.menuCatalog))
     // The root row is injected by the merge (it has no JSONC entry), so its
     // "Go" label comes from the catalog's root entry; the merge only uses
     // it for the injected row, never over a user-supplied heading.

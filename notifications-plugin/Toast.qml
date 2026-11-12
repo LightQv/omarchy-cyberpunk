@@ -73,8 +73,9 @@ Item {
   readonly property bool critical: row.urgency === 2
   readonly property color dimColor: Qt.darker(Commons.Color.notifications.text, 1.4)
   readonly property color bodyColor: Qt.darker(Commons.Color.notifications.text, 1.15)
-  readonly property color accentColor: critical ? Commons.Color.urgent
-                                               : (row.urgency === 0 ? dimColor : Commons.Color.notifications.countdown)
+  readonly property color accentColor: row.urgency === 0
+      ? Qt.darker(Commons.Color.notifications.countdown, 1.25)
+      : Commons.Color.notifications.countdown
   readonly property bool hasBody: String(row.body || "").length > 0
   readonly property bool redacted: Store.redacted(row)
   // Omarchy's own toasts and bare notify-send calls name no source worth a
@@ -200,6 +201,7 @@ Item {
 
   // The height this card's *state* implies, a step function the deck lays out
   // from. Feeding a mid-animation height back into the layout stalls the stack.
+  readonly property bool actionsVisible: allDeeds.length > 0 && (hovered || selected)
   readonly property real targetHeight: fixedHeight + deedArea.wanted
 
   // The height the scene says it is right now, on the way there.
@@ -526,14 +528,14 @@ Item {
     Item {
       id: deedArea
       anchors { left: parent.left; right: parent.right; bottom: parent.bottom
-                leftMargin: plate.borderLeft; rightMargin: plate.borderRight
-                bottomMargin: plate.borderBottom }
+                leftMargin: Style.space(70); rightMargin: Style.space(12)
+                bottomMargin: Style.space(5) }
 
-      readonly property bool shown: card.allDeeds.length > 0 && (card.expanded ? card.hovered : card.place.front)
+      readonly property bool shown: card.actionsVisible
       readonly property int columns: Math.max(1, Math.min(3, card.allDeeds.length))
       readonly property int rows: Math.ceil(card.allDeeds.length / columns)
       readonly property real rule: 1
-      readonly property color ruleColor: Qt.rgba(card.dimColor.r, card.dimColor.g, card.dimColor.b, 0.35)
+      readonly property color ruleColor: Qt.rgba(card.accentColor.r, card.accentColor.g, card.accentColor.b, 0.55)
       readonly property real segmentHeight: Style.spacing.controlHeight + Style.space(6)
       readonly property real barHeight: rows * (rule + segmentHeight)
       // What the state asks for; the drawn height is whatever slack the

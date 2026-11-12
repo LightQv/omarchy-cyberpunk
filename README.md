@@ -86,7 +86,7 @@ controlled; actual audio is unchanged.
 | --- | --- |
 | **Desktop** | Palette-derived shell colors, directional window borders and 13 bundled wallpapers. |
 | **Menu** | Curved command/App rows, search, stable hover, wheel navigation and mirrored Keybindings. |
-| **Notifications** | Warning icon and stepped angular frames around the native 4.5 stacks, DND, history, action buttons, links and keyboard controls. |
+| **Notifications** | Top-centered warning banners with theme accents at every urgency. Native 4.5 stacks, DND, history and links; action buttons appear on hover or keyboard selection. |
 | **OSD** | Turquoise volume, red mute and centered action messages; native brightness, media and microphone payloads. |
 | **Sudo / Polkit** | Frozen/dimmed backdrop, beveled password masks, a single padded red caret and cut-corner actions. |
 | **Session lock** | Matching wallpaper/prompt and a brief settling effect, with pinned native PAM and secure session-lock handling. |
@@ -142,6 +142,19 @@ its stable system updater, then run `cyberpunk update` and select Cyberpunk agai
 The installer rejects a different Omarchy package or changed reviewed sources
 before removing the existing installation. Custom lock activation remains gated
 by safe mode and needs separate lock/unlock acceptance.
+
+The Cyberpunk menu keeps Apps inside its application-index HUD instead of the
+4.5 dock launcher. This follows the existing menu component switch:
+`cyberpunk disable menu` or selecting a regular theme restores the stock route;
+`cyberpunk enable menu` restores the integrated Apps view on Cyberpunk. Explicit
+user menu actions still take precedence. No global menu override is installed.
+
+For a **supervised lock trial**, keep recovery access available, then use
+`cyberpunk lock status` and `cyberpunk lock trial` while unlocked. Trial only
+selects the custom provider; it does not lock the screen. Test locking and
+unlocking manually. Once unlocked, `cyberpunk lock restore` returns to the stock
+provider. Safe mode stays intact, and updates/uninstallation refuse an armed
+trial. Do not restart the shell or swap providers during a secure lock.
 
 Cyberpunk v0.1.5 adds `cyberpunk compatibility [--upstream] [--json]`
 and a general source audit to `cyberpunk check`. The repository's daily release

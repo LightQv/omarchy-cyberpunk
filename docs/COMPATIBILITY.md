@@ -19,6 +19,33 @@ from the complete new service, preserving wake-key repeat filtering, password
 focus recovery, fingerprint pacing, suspend/resume handling and video posters.
 Safe mode remains enabled until a separate secure lock/unlock acceptance.
 
+### v0.2.1 presentation corrections
+
+The first 4.5 candidate loaded correctly but did not retain visual parity: its
+notification surface still used native top-right placement, low-urgency frames
+used the native text color, and the new shipped Apps action bypassed the HUD.
+Component-load and source-hash tests alone did not catch these presentation
+regressions.
+
+The next candidate centers the notification deck at the original 8.5% top inset
+(clearing a top bar), bounds its width to the output, and keeps the themed accent
+at every urgency. Action buttons no longer occupy resting banners: hovering or
+keyboard selection reveals them, retaining their native action identifiers,
+ordering and execution. Native stacks, expiry, privacy, DND, links, code copying
+and keyboard controls are kept; the old 4.0 animation/delivery engine is not
+reintroduced. Keyboard reachability accounts for the larger top inset.
+
+Only the Cyberpunk menu converts the shipped dock Apps redirect to an integrated
+provider menu. It does so before user overrides, without changing the shared
+defaults or writing a personal menu extension. Disabling the menu component or
+switching themes therefore restores the stock 4.5 route automatically.
+
+Regression coverage checks actual notification surface geometry, low/normal/
+critical accent bindings, resting/hover/keyboard action visibility, sender action
+dispatch, the Apps provider route, non-mutation of defaults and user precedence.
+Private-bus rendered previews additionally cover the Apps HUD and centered banner.
+Fresh-login acceptance and secure custom-lock acceptance remain separate gates.
+
 The old notification history is retired by Omarchy's own migration. Back it up
 before updating; do not copy its old JSON files over the 4.5 store.
 

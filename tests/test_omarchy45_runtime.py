@@ -22,7 +22,9 @@ PACKAGE = os.environ.get("OMARCHY_TEST_ROOT")
 QML = r'''
 import QtQuick
 import Quickshell
+import qs.Commons as Commons
 import "Menu" as CyberMenu
+import "NativeMenu" as NativeMenu
 import "Notifications" as CyberNotifications
 import "Osd" as CyberOsd
 import "Polkit" as CyberPolkit
@@ -30,10 +32,18 @@ import "Lock" as CyberLock
 
 ShellRoot {
   CyberMenu.Menu { id: menu; defaultMenuPath: Quickshell.env("CYBERPUNK_TEST_MENU") }
+  NativeMenu.Menu { id: nativeMenu; defaultMenuPath: Quickshell.env("CYBERPUNK_TEST_MENU") }
   CyberNotifications.Service { id: notifications }
   CyberNotifications.Toast {
     id: toast
     row: ({key: "test", summary: "Test", body: "Private fixture", app: "test", urgency: 1})
+  }
+  CyberNotifications.Toast {
+    id: actionable
+    row: ({key: "actionable", summary: "Screenshot", urgency: 0})
+    actions: [{id: "open", text: "Open"}, {id: "copy", text: "Copy"}]
+    property string invoked: ""
+    onActionInvoked: function(identifier) { invoked = identifier }
   }
   CyberOsd.Osd { id: osd }
   CyberPolkit.PolkitAgent { id: polkit }
@@ -47,7 +57,11 @@ ShellRoot {
     onTriggered: {
       try {
         require(menu.identity() === "cyberpunk-menu-hud-3", "HUD identity lost")
-        require(menu.rowsLoaded && menu.itemOrder.length === 3, "Menu source loading failed")
+        require(menu.rowsLoaded && menu.itemOrder.length === 4, "Menu source loading failed")
+        require(menu.item("apps").kind === "menu" && !menu.item("apps").action && menu.item("apps").provider === "apps",
+                "Apps escaped to the stock dock launcher")
+        require(nativeMenu.item("apps").kind === "action" && nativeMenu.item("apps").action === "omarchy-shell omarchy.dock apps",
+                "Native themes lost the stock Apps route")
         menu.rebuildDisplay()
         menu.select(1)
         require(menu.rowSelectable(menu.selectedIndex), "Wheel selected a disabled row")
@@ -63,6 +77,30 @@ ShellRoot {
         require(notifications.runShortcut("act"), "Notification act IPC missing")
         require(notifications.runShortcut("keyboard"), "Notification keyboard IPC missing")
         require(toast.targetHeight > 0 && toast.allDeeds.length === 0, "Native toast content failed")
+        require(String(toast.accentColor) === String(Commons.Color.notifications.countdown), "Normal accent lost")
+        require(String(actionable.accentColor) === String(Qt.darker(Commons.Color.notifications.countdown, 1.25)),
+                "Low urgency uses white/text instead of the Cyberpunk accent")
+        require(actionable.allDeeds.length === 2 && !actionable.actionsVisible, "Actions clutter the resting banner")
+        var restingHeight = actionable.targetHeight
+        actionable.hovered = true
+        require(actionable.actionsVisible && actionable.targetHeight > restingHeight, "Hover actions unavailable")
+        actionable.doDeed(actionable.allDeeds[1])
+        require(actionable.invoked === "copy", "Sender action identifier changed")
+        actionable.hovered = false
+        actionable.selected = true
+        require(actionable.actionsVisible, "Keyboard actions unavailable")
+        actionable.selected = false
+        require(!actionable.actionsVisible, "Actions persist after interaction")
+        actionable.row = ({key: "critical", summary: "Critical", urgency: 2})
+        require(String(actionable.accentColor) === String(Commons.Color.notifications.countdown), "Critical theme accent lost")
+        var surfaces = notifications.surfaceStates()
+        require(surfaces.length > 0, "No notification surface")
+        for (var i = 0; i < surfaces.length; i++) {
+          var surface = surfaces[i]
+          require(surface.width > 0 && Math.abs(surface.bannerCenterX - surface.width / 2) <= 1,
+                  "Banners are no longer centered")
+          require(surface.bannerTop >= surface.height * 0.085 - 1, "Banners lost their 8.5% top inset")
+        }
         require(typeof lockView.dropsAutoRepeat === "function" && lockView.dropsAutoRepeat(Qt.Key_A), "Wake-key repeat protection lost")
         require(!lockView.dropsAutoRepeat(Qt.Key_Backspace), "Backspace repeat broken")
         console.log("CYBERPUNK_45_COMPONENTS_OK")
@@ -102,6 +140,7 @@ class Omarchy45RuntimeTest(unittest.TestCase):
             for name, target in {
                 "Commons": package / "shell/Commons", "Ui": package / "shell/Ui",
                 "Menu": ROOT / "menu-plugin", "Notifications": ROOT / "notifications-plugin",
+                "NativeMenu": package / "shell/plugins/menu",
                 "Osd": ROOT / "osd-plugin", "Polkit": ROOT / "polkit-plugin",
                 "Lock": ROOT / "lock-plugin", "lightqv.cyberpunk-lock": ROOT / "lock-plugin",
             }.items():
@@ -114,6 +153,7 @@ class Omarchy45RuntimeTest(unittest.TestCase):
                 "root": {"label": "Test"},
                 "root.disabled": {"label": "Already installed", "action": "true", "disabled": "true"},
                 "root.ready": {"label": "Ready", "action": "true"},
+                "apps": {"label": "Apps", "provider": "apps", "action": "omarchy-shell omarchy.dock apps"},
             }))
             config = base / "bus.conf"
             config.write_text(f'''<busconfig><type>session</type><listen>unix:tmpdir={base}</listen>

@@ -91,7 +91,8 @@ Item {
     for (var i = 0; i < list.length; i++) {
       var s = list[i]
       out.push({ display: s.modelData ? String(s.modelData.name) : "", mapped: s.visible === true,
-                 stepAside: s.stepAside === true, showing: s.showingNotifications === true })
+                 stepAside: s.stepAside === true, showing: s.showingNotifications === true,
+                 bannerCenterX: s.bannerCenterX, bannerTop: s.bannerTop, width: s.width, height: s.height })
     }
     return out
   }
@@ -344,7 +345,7 @@ Item {
     for (var s = 0; s < Quickshell.screens.length; s++)
       if (String(Quickshell.screens[s].name) === targetDisplayName) screen = Quickshell.screens[s]
     if (!screen) return true
-    var room = screen.height - marginsFor(targetDisplayName).top - gap
+    var room = screen.height - Math.max(marginsFor(targetDisplayName).top, screen.height * 0.085) - gap
     return place.y + (place.height || Style.space(58)) <= room
   }
 
@@ -1514,13 +1515,14 @@ Item {
 
       WlrLayershell.namespace: "omarchy-notifications"
       WlrLayershell.layer: WlrLayer.Overlay
+      readonly property real bannerCenterX: clipper.x + deck.x + deck.width / 2
+      readonly property real bannerTop: clipper.y
       readonly property bool takesKeyboard: service.keyboardMode && service.targetDisplayName === String(modelData.name)
       WlrLayershell.keyboardFocus: takesKeyboard ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
       exclusionMode: ExclusionMode.Ignore
 
       // Constant width and full height, so the buffer is allocated once.
-      anchors { top: true; bottom: true; right: true }
-      implicitWidth: clipper.width + Style.space(10)
+      anchors { top: true; bottom: true; left: true; right: true }
 
       mask: Region { item: surface.showingNotifications ? deck : null }
 
@@ -1534,19 +1536,19 @@ Item {
       Item {
         id: clipper
         visible: surface.showingNotifications
-        anchors.right: parent.right
+        x: Math.round((surface.width - width) / 2)
         anchors.top: parent.top
-        anchors.topMargin: surface.margins.top
+        anchors.topMargin: Math.max(surface.margins.top, surface.height * 0.085)
         // Room for the arrival's scale animation, and the gap from the edge.
         readonly property int motionInset: Style.spacing.sm
-        width: service.notificationWidth + motionInset + surface.margins.right
+        width: Math.min(surface.width, service.notificationWidth + motionInset * 2)
         height: deck.y + deck.height + motionInset
         clip: true
 
         Item {
           id: deck
           x: clipper.motionInset
-          width: service.notificationWidth
+          width: Math.max(1, clipper.width - clipper.motionInset * 2)
           height: service.deckHeight
 
           // One hover region over the whole deck, so crossing between cards does

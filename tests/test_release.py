@@ -63,6 +63,23 @@ class ReleaseTest(unittest.TestCase):
         self.cli("uninstall")
         self.assertFalse(self.dest.exists())
         self.assertTrue((self.state / "preferences.json").exists())
+
+    def test_managed_lock_trial_is_restorable_and_blocks_release_changes(self):
+        self.run_release()
+        self.cli("enable", "lock")
+        safe = (self.state / "safe-mode").read_bytes()
+        self.cli("lock", "status")
+        self.cli("lock", "trial")
+        self.assertTrue(self.fixture.plugins()["lightqv.cyberpunk-lock"])
+        self.assertEqual((self.state / "safe-mode").read_bytes(), safe)
+        self.cli("uninstall", success=False)
+        self.run_release(self.make_payload("v0.1.1"), success=False)
+        self.assertTrue((self.state / "lock-trial").exists())
+        self.cli("lock", "restore")
+        self.assertFalse((self.state / "lock-trial").exists())
+        self.assertTrue(self.fixture.plugins()["omarchy.lock"])
+        self.assertEqual((self.state / "safe-mode").read_bytes(), safe)
+        self.cli("check")
         self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
 
     def test_wrong_omarchy_version_is_refused_before_live_changes(self):

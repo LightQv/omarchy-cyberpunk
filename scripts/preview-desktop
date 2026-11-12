@@ -46,6 +46,9 @@ def main():
         if not address:
             raise RuntimeError("Private preview bus did not start")
         environment = dict(os.environ, HOME=str(home), DBUS_SESSION_BUS_ADDRESS=address,
+                           DBUS_SYSTEM_BUS_ADDRESS=address,
+                           XDG_CONFIG_HOME=str(home / ".config"), XDG_STATE_HOME=str(home / ".local/state"),
+                           XDG_DATA_HOME=str(home / ".local/share"),
                            CYBERPUNK_PREVIEW_ROOT=str(ROOT), OMARCHY_PATH=str(OMARCHY),
                            NO_AT_BRIDGE="1", QT_ACCESSIBILITY="0", OMARCHY_REDUCED_MOTION="0")
         environment.pop("QT_QPA_PLATFORM", None)
@@ -83,6 +86,12 @@ def main():
             shell = subprocess.Popen(["qs", "-p", str(qml)], env=environment, stdout=logging, stderr=logging)
             try:
                 wait(lambda: ipc("ready") == "ok")
+                if os.environ.get("CYBERPUNK_PREVIEW_APPS_ONLY") == "1":
+                    wallpaper("07.png")
+                    open_menu("apps")
+                    capture("apps")
+                    ipc("closeMenu")
+                    return
                 if os.environ.get("CYBERPUNK_PREVIEW_NOTIFICATIONS_ONLY") == "1":
                     wallpaper("10.png")
                     run("notify-send", "-a", "Cyberpunk Showcase", "-t", "30000", "Signal established", "Your desktop, in red and turquoise.")
