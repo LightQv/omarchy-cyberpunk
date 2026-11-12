@@ -127,7 +127,7 @@ elif args[:2] == ["theme", "set"]:
     if control.get("fail_after_theme"):
         sys.exit(24)
     hook = home / ".config/omarchy/hooks/theme-set.d/lightqv-cyberpunk-menu"
-    if hook.exists():
+    if hook.exists() and not control.get("skip_theme_hook"):
         project = hook.resolve().parents[2]
         code = subprocess.call([str(project / "scripts/verify"), "--repair"])
         if control.get("change_after_theme"):

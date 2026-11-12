@@ -46,6 +46,13 @@ dispatch, the Apps provider route, non-mutation of defaults and user precedence.
 Private-bus rendered previews additionally cover the Apps HUD and centered banner.
 Fresh-login acceptance and secure custom-lock acceptance remain separate gates.
 
+The live v0.2.1 transaction exposed an additional 4.5 theme-hook race and was
+rolled back. v0.2.2 explicitly runs the serialized reconciler after restoring
+the theme, before read-only provider verification, on both installation and
+old-release recovery. Tests delay the native theme hook entirely and exercise
+successful updates as well as failed-update recovery. Published tags and
+archives are never replaced to fix a failed candidate.
+
 The old notification history is retired by Omarchy's own migration. Back it up
 before updating; do not copy its old JSON files over the 4.5 store.
 

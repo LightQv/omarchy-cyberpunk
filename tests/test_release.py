@@ -63,6 +63,7 @@ class ReleaseTest(unittest.TestCase):
         self.cli("uninstall")
         self.assertFalse(self.dest.exists())
         self.assertTrue((self.state / "preferences.json").exists())
+        self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
 
     def test_managed_lock_trial_is_restorable_and_blocks_release_changes(self):
         self.run_release()
@@ -80,7 +81,27 @@ class ReleaseTest(unittest.TestCase):
         self.assertTrue(self.fixture.plugins()["omarchy.lock"])
         self.assertEqual((self.state / "safe-mode").read_bytes(), safe)
         self.cli("check")
-        self.assertEqual(json.loads(self.fixture.config.read_text()), self.fixture.original)
+
+    def test_update_reconciles_providers_before_async_theme_hook_runs(self):
+        self.run_release()
+        self.cli("enable", "all")
+        self.fixture.control.write_text(json.dumps({"skip_theme_hook": True}))
+        self.run_release(self.make_payload("v0.1.1"))
+        self.cli("check")
+        for kind in ("menu", "notifications", "osd", "polkit"):
+            self.assertTrue(self.fixture.plugins()["lightqv.cyberpunk-" + kind])
+            self.assertFalse(self.fixture.plugins()["omarchy." + kind])
+
+    def test_recovery_reconciles_old_providers_without_waiting_for_theme_hook(self):
+        self.run_release()
+        self.cli("enable", "all")
+        before = json.loads(self.fixture.config.read_text())
+        self.fixture.control.write_text(json.dumps({"skip_theme_hook": True, "palette_reply_once": "not-ready"}))
+        self.run_release(self.make_payload("v0.1.1"), success=False)
+        self.assertIn("v0.1.0", self.cli("version").stdout)
+        self.assertFalse((self.state / "release-transaction").exists())
+        self.cli("check")
+        self.assertEqual(json.loads(self.fixture.config.read_text()), before)
 
     def test_wrong_omarchy_version_is_refused_before_live_changes(self):
         self.fixture.control.write_text(json.dumps({"omarchy_version": "4.0.4-1"}))
