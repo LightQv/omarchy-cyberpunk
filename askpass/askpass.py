@@ -340,8 +340,10 @@ class Askpass(QWidget):
         """Capture before showing the modal, in memory; never write screen pixels."""
         if not os.environ.get("WAYLAND_DISPLAY") or os.environ.get("QT_QPA_PLATFORM") == "offscreen":
             return QImage()
+        output = focused_output()
         try:
-            result = subprocess.run(["grim", "-t", "png", "-"], capture_output=True,
+            result = subprocess.run(["grim", "-t", "png", *(["-o", output] if output else []), "-"],
+                                    capture_output=True,
                                     timeout=0.7, check=True)
             return QImage.fromData(result.stdout, "PNG")
         except (OSError, subprocess.SubprocessError):
@@ -458,11 +460,28 @@ class Askpass(QWidget):
         QApplication.instance().exit(1)
 
 
+def focused_output() -> str | None:
+    """Name of the Hyprland monitor with focus (Wayland hides the global cursor from Qt)."""
+    try:
+        import json
+        result = subprocess.run(["hyprctl", "monitors", "-j"], capture_output=True,
+                                timeout=0.5, check=True)
+        for monitor in json.loads(result.stdout):
+            if monitor.get("focused"):
+                return monitor.get("name")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    return None
+
+
 def main() -> int:
     app = QApplication([sys.argv[0]])
     window = Askpass(" ".join(sys.argv[1:]))
-    screen = app.screenAt(QCursor.pos()) or app.primaryScreen()
+    output = focused_output()
+    screen = (next((s for s in app.screens() if s.name() == output), None)
+              or app.screenAt(QCursor.pos()) or app.primaryScreen())
     if screen:
+        window.setScreen(screen)
         window.setGeometry(screen.geometry())
     window.showFullScreen()
     return app.exec()
